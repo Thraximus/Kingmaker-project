@@ -3291,13 +3291,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57d0311d28915814ba89a32112f9ffb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraTransform: {fileID: 963194228}
+  mainCamera: {fileID: 963194228}
   normalCameraSpeed: 0.1
+  maxCameraZoom: 15
+  minCameraZoom: 5
   fastCameraSpeed: 0.25
-  cameraMovementTime: 15
+  cameraMovementTime: 30
   cameraRotationAmount: 0.75
   cameraZoomAmount: {x: 0, y: -0.1, z: 0.1}
-  newZoom: {x: 0, y: 0, z: 0}
 --- !u!4 &1079593487
 Transform:
   m_ObjectHideFlags: 0
@@ -3306,7 +3307,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1079593485}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -3.59}
+  m_LocalPosition: {x: 0, y: 1, z: -5.42}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 public class CameraController : MonoBehaviour
 {
-    [SerializeField] private Transform cameraTransform;
+    [SerializeField] private Transform mainCamera;
 
     [SerializeField] private float normalCameraSpeed;
     [SerializeField] private float maxCameraZoom;
@@ -15,7 +15,7 @@ public class CameraController : MonoBehaviour
 
     private Vector3 newPosition;
     private Quaternion newRotation;
-    public Vector3 newZoom;
+    private Vector3 newZoom;
     private Vector3 rotateStartPos;
     private Vector3 rotateCurrentPos;
     private bool edgeMoving = false;
@@ -29,7 +29,7 @@ public class CameraController : MonoBehaviour
         Cursor.lockState = CursorLockMode.Confined;
         newPosition = transform.position;
         newRotation = transform.rotation;
-        newZoom = cameraTransform.localPosition;
+        newZoom = mainCamera.localPosition;
     }
 
     // Update is called once per frame
@@ -197,6 +197,6 @@ public class CameraController : MonoBehaviour
         {
             newZoom.z = -maxCameraZoom+5;
         }
-        cameraTransform.localPosition = Vector3.Lerp(cameraTransform.localPosition, newZoom, Time.deltaTime * cameraMovementTime); // camera zoom
+        mainCamera.localPosition = Vector3.Lerp(mainCamera.localPosition, newZoom, Time.deltaTime * cameraMovementTime).Round(4); // camera zoom
     }
 }
