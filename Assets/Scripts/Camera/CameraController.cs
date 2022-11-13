@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading.Tasks; 
 public class CameraController : MonoBehaviour
 {
     [SerializeField] private Transform mainCamera;
@@ -11,6 +12,7 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float fastCameraSpeed;
     [SerializeField] private float cameraMovementTime;
     [SerializeField] private float cameraRotationAmount;
+    [SerializeField] private bool invertCameraRotation;
     [SerializeField] private Vector3 cameraZoomAmount;
 
     private Vector3 newPosition;
@@ -19,6 +21,8 @@ public class CameraController : MonoBehaviour
     private Vector3 rotateStartPos;
     private Vector3 rotateCurrentPos;
     private bool edgeMoving = false;
+    private float doubleClickTImer;
+    private bool doubleClickActive;
 
     private float edgeSize = 10f;
 
@@ -64,6 +68,38 @@ public class CameraController : MonoBehaviour
         HandleMouseMovement();
         HandleMouseRotation();
         HandleMouseZoom();
+        HandleCameraReset();
+    }
+
+    private void HandleCameraReset()
+    {
+        if(doubleClickActive)
+        {
+            if(doubleClickTImer>0)
+            {
+                doubleClickTImer -= Time.deltaTime;
+            }
+            else
+            {
+                doubleClickActive = false;
+            }
+        }
+        if(Input.GetMouseButtonDown(2))
+        {
+            if(doubleClickActive)
+            {
+                // TODO reset camera
+                newRotation = Quaternion.Euler(Vector3.zero);
+                doubleClickActive = false;
+            }
+            else
+            {
+                doubleClickTImer = 0.3f;
+                doubleClickActive = true;
+            }
+            
+        }
+        
     }
 
     private void HandleMouseMovement()
@@ -110,7 +146,7 @@ public class CameraController : MonoBehaviour
 
             rotateStartPos = rotateCurrentPos;
 
-            newRotation *= Quaternion.Euler(Vector3.up * (-difference.x / 5f));
+            newRotation *= Quaternion.Euler(Vector3.up * ((invertCameraRotation ? -1 : 1 )* difference.x / 5f));
         }
 
     }
