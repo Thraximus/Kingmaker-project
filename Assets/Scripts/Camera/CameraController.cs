@@ -6,6 +6,8 @@ public class CameraController : MonoBehaviour
     [SerializeField] private Transform cameraTransform;
 
     [SerializeField] private float normalCameraSpeed;
+    [SerializeField] private float maxCameraZoom;
+    [SerializeField] private float minCameraZoom;
     [SerializeField] private float fastCameraSpeed;
     [SerializeField] private float cameraMovementTime;
     [SerializeField] private float cameraRotationAmount;
@@ -13,7 +15,7 @@ public class CameraController : MonoBehaviour
 
     private Vector3 newPosition;
     private Quaternion newRotation;
-    private Vector3 newZoom;
+    public Vector3 newZoom;
     private Vector3 rotateStartPos;
     private Vector3 rotateCurrentPos;
     private bool edgeMoving = false;
@@ -35,6 +37,7 @@ public class CameraController : MonoBehaviour
     {
         HandleMouseInput();
         HandleKeyboardInput();
+        commitCameraChanges();
     }
 
     private float GetCameraSpeed()
@@ -143,7 +146,7 @@ public class CameraController : MonoBehaviour
             }
         }
 
-        transform.position = Vector3.Lerp(transform.position, newPosition,Time.deltaTime * cameraMovementTime);
+        
     }
 
     private void HandleKeyboardRotation()
@@ -158,7 +161,7 @@ public class CameraController : MonoBehaviour
             newRotation *= Quaternion.Euler(Vector3.up * -cameraRotationAmount);
         }
 
-        transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * cameraMovementTime);
+        
     }
 
     private void HandleKeyboardZoom()
@@ -171,7 +174,29 @@ public class CameraController : MonoBehaviour
         {
             newZoom -= cameraZoomAmount;
         }
+    }
 
-        cameraTransform.localPosition = Vector3.Lerp(cameraTransform.localPosition, newZoom, Time.deltaTime * cameraMovementTime);
+    private void commitCameraChanges()
+    {
+        transform.position = Vector3.Lerp(transform.position, newPosition,Time.deltaTime * cameraMovementTime); // camera movement
+        transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * cameraMovementTime); // camera rotation
+        if(newZoom.y < minCameraZoom)
+        {
+            newZoom.y = minCameraZoom;
+        }
+        else if(newZoom.y > maxCameraZoom) 
+        {
+            newZoom.y = maxCameraZoom;
+        }  
+
+        if(newZoom.z > minCameraZoom-5)
+        {
+            newZoom.z = minCameraZoom-5;
+        }
+        else if(newZoom.z < -maxCameraZoom+5)
+        {
+            newZoom.z = -maxCameraZoom+5;
+        }
+        cameraTransform.localPosition = Vector3.Lerp(cameraTransform.localPosition, newZoom, Time.deltaTime * cameraMovementTime); // camera zoom
     }
 }
