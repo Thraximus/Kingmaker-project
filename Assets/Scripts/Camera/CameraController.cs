@@ -7,12 +7,15 @@ public class CameraController : MonoBehaviour
     [SerializeField] private Transform mainCamera;
 
     [SerializeField] private float normalCameraSpeed;
+    [SerializeField] private float fastCameraSpeed;
     [SerializeField] private float maxCameraZoom;
     [SerializeField] private float minCameraZoom;
-    [SerializeField] private float fastCameraSpeed;
+
+    [Tooltip("Crispness of camera actions(higher number = crisper, lower number = smoother)")]
     [SerializeField] private float cameraMovementTime;
     [SerializeField] private float cameraRotationAmount;
     [SerializeField] private bool invertCameraRotation;
+    [Tooltip("Step size when zooming in and out")]
     [SerializeField] private Vector3 cameraZoomAmount;
 
     private Vector3 newPosition;
@@ -48,11 +51,11 @@ public class CameraController : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.LeftShift))
         {
-            return fastCameraSpeed;
+            return fastCameraSpeed/20f;
         }
         else
         {
-            return normalCameraSpeed;
+            return normalCameraSpeed/20f;
         }
     }
 
