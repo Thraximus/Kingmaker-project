@@ -76,13 +76,14 @@ public class TerrainLoader : MonoBehaviour
             hitZ = Mathf.RoundToInt((hit.point - terrain.GetPosition()).z/terrain.terrainData.size.z * terrain.terrainData.heightmapResolution);
             hitX = Mathf.RoundToInt((hit.point - terrain.GetPosition()).x/terrain.terrainData.size.x * terrain.terrainData.heightmapResolution);
 
-
+            // calculate brush strenghts with compute shader
             brushDropoffShader.SetFloat("brushWidth",brush.width);
             brushDropoffShader.SetFloat("brushHeight",brush.height);
-            ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));
+            ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));   
             buffer.SetData(loadedBrush);
-            brushDropoffShader.SetBuffer(0, "loadedBrush", buffer);
-            brushDropoffShader.Dispatch(0,loadedBrush.Length,1,1);
+            int kernel = brushDropoffShader.FindKernel("SmoothManipultionTool");
+            brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
+            brushDropoffShader.Dispatch(kernel,loadedBrush.Length,1,1);
             buffer.GetData(computedBrush);
 
             buffer.Dispose();
