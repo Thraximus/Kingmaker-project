@@ -5,10 +5,12 @@ using UnityEngine;
 public class TerrainLoader : MonoBehaviour
 {
     [SerializeField] private Terrain terrain;
-    [SerializeField] private Vector3 DebugVect;
-    [SerializeField] private float  DebugHeight;
     [SerializeField] private ComputeShader brushDropoffShader;
     [SerializeField] private int brushSize;
+    
+    [SerializeField] private int brushLength;
+    [SerializeField] private string mapNameForLoadSave;
+    [SerializeField] private  Texture2D heightmapSaveLoadBuffer;
     [SerializeField] private Texture2D brush;
     [SerializeField] private float brushStrenght;   //  TODO: MAYBE inherit brush strength for every pixel from brush?
     // Start is called before the first frame update
@@ -17,7 +19,7 @@ public class TerrainLoader : MonoBehaviour
     private RaycastHit hit;
     private Ray ray;
     private float realBrushStrenght;
-    private int[,]  placeholderBrush= new int[13,2] {{0,0},{0,1},{0,-1},{1,0},{-1,0},{0,2},{0,-2},{2,0},{-2,0},{1,1},{-1,-1},{1,-1},{-1,1}}; // TODO: implement loading custom brushes from png
+    // private int[,]  placeholderBrush= new int[13,2] {{0,0},{0,1},{0,-1},{1,0},{-1,0},{0,2},{0,-2},{2,0},{-2,0},{1,1},{-1,-1},{1,-1},{-1,1}};  TODO REMOVE
     private brushPixel[] loadedBrush;
     private brushPixel[] computedBrush;
 
@@ -28,10 +30,9 @@ public class TerrainLoader : MonoBehaviour
         public float pixelBrushStrength;
     }
 
-     
 
-    public int hitX;
-    public int hitZ;
+    private int hitX;
+    private int hitZ;
     private void Start()
     {
         realBrushStrenght = brushStrenght/500;
@@ -45,7 +46,7 @@ public class TerrainLoader : MonoBehaviour
         }
         
         this.terrain.terrainData.SetHeights(0,0,mesh);
-        loadBrushFromPng();
+        loadBrushFromPng("squareBrush");
     }
 
     // Update is called once per frame
@@ -60,6 +61,75 @@ public class TerrainLoader : MonoBehaviour
         {
             raiseOrLowerTerrain(false);
         }
+
+        if(Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Z))                              
+        {
+            undoTerrainManipulation();      
+        }
+
+
+        if(Input.GetKeyUp(KeyCode.K))                               // Temporary save key
+        {
+            saveTerrainHeightmapToFolder(mapNameForLoadSave);       // TODO place this function on GUI object
+        }
+
+        if(Input.GetKeyUp(KeyCode.L))                               // Temporary load key
+        {
+            loadTerrainfromFolder(mapNameForLoadSave);              // TODO place this function on GUI object
+        }
+    }
+
+
+    private void undoTerrainManipulation()
+    {
+
+    }
+
+
+    private void loadTerrainfromFolder(string mapName)
+    {
+        byte[] fileData;
+
+        if (System.IO.File.Exists("Assets/ExportedHeightmaps/" + mapName + ".png"))
+        {
+            fileData = System.IO.File.ReadAllBytes("Assets/ExportedHeightmaps/" + mapName + ".png");
+            heightmapSaveLoadBuffer = new Texture2D(2, 2);
+            heightmapSaveLoadBuffer.LoadImage(fileData); //..this will auto-resize the texture dimensions.
+        
+
+            mesh = new float[terrain.terrainData.heightmapResolution,terrain.terrainData.heightmapResolution];
+            for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
+            {
+                for( int j = 0; j < terrain.terrainData.heightmapResolution;j++ )
+                {
+                    
+                    mesh[i,j] = heightmapSaveLoadBuffer.GetPixel(j,i).g;
+                }  
+            }
+            this.terrain.terrainData.SetHeights(0,0,mesh);
+        }
+        else
+        {
+            Debug.Log("Map Not Found - implement real error handling function");
+        }
+
+    }
+    private void saveTerrainHeightmapToFolder(string mapName)
+    {
+        heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.heightmapResolution, terrain.terrainData.heightmapResolution);
+        for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
+        {
+            for( int j = 0; j < terrain.terrainData.heightmapResolution;j++ )
+            {
+                Color pixel = new Color(mesh[j,i],mesh[j,i],mesh[j,i],1);
+                heightmapSaveLoadBuffer.SetPixel(i,j,pixel);
+            }     
+        }
+        heightmapSaveLoadBuffer.Apply();
+
+        byte[] _bytes =heightmapSaveLoadBuffer.EncodeToPNG();
+        System.IO.File.WriteAllBytes("Assets/ExportedHeightmaps/" + mapName + ".png", _bytes);
+
     }
     
     private void raiseOrLowerTerrain(bool raise)
@@ -83,14 +153,15 @@ public class TerrainLoader : MonoBehaviour
             buffer.SetData(loadedBrush);
             int kernel = brushDropoffShader.FindKernel("SmoothManipultionTool");
             brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
-            brushDropoffShader.Dispatch(kernel,loadedBrush.Length,1,1);
+            brushDropoffShader.Dispatch(kernel,(int)Mathf.Ceil(loadedBrush.Length/64f),1,1);
+            brushLength = (int)Mathf.Ceil(loadedBrush.Length/64f);
             buffer.GetData(computedBrush);
 
             buffer.Dispose();
             
             for(int i=0; i< computedBrush.Length;i++)
             {
-                if(hitZ+computedBrush[i].xPos > 0 && hitX+computedBrush[i].yPos > 0)
+                if(hitZ+computedBrush[i].xPos > 0 && hitX+computedBrush[i].yPos > 0 && hitZ+computedBrush[i].xPos < terrain.terrainData.heightmapResolution && hitX+computedBrush[i].yPos < terrain.terrainData.heightmapResolution)
                 {
                     
                     if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier < 1  )
@@ -113,44 +184,55 @@ public class TerrainLoader : MonoBehaviour
                 loadedBrush[i].pixelBrushStrength = realBrushStrenght;
             }
             this.terrain.terrainData.SetHeights(0,0,mesh);
-
         }
-
     }
 
-    private void loadBrushFromPng()
+    private void loadBrushFromPng(string brushName)
     {
-        //  = Resources.Load<Texture2D>("Assets/Brushes/TestBrush.png");  
-        var count = 0;
-        for (int i = 0; i < brush.width; i++)
+        brush = null;
+        byte[] fileData;
+
+        if (System.IO.File.Exists("Assets/Brushes/" + brushName + ".png"))
         {
-            for (int j = 0; j < brush.height; j++)
-            { 
-                Color pixel = brush.GetPixel(j, i);
-                // if it's a white color then just debug...
-                if (pixel == Color.black)
-                {
-                    count+=1;
+            fileData = System.IO.File.ReadAllBytes("Assets/Brushes/" + brushName + ".png");
+            brush = new Texture2D(2, 2);
+            brush.LoadImage(fileData); //..this will auto-resize the texture dimensions.
+        
+            var count = 0;
+            for (int i = 0; i < brush.width; i++)
+            {
+                for (int j = 0; j < brush.height; j++)
+                { 
+                    Color pixel = brush.GetPixel(j, i);
+                    // if it's a white color then just debug...
+                    if (pixel == Color.black)
+                    {
+                        count+=1;
+                    }
+                }
+            }
+            loadedBrush = new brushPixel[count];
+            computedBrush = new brushPixel[count];
+            count = 0;
+            for (int i = 0; i < brush.width; i++)
+            {
+                for (int j = 0; j < brush.height; j++)
+                { 
+                    Color pixel = brush.GetPixel(j, i);
+                    // if it's a white color then just debug...
+                    if (pixel == Color.black)
+                    {
+                        loadedBrush[count].xPos = i-25;
+                        loadedBrush[count].yPos = j-25;
+                        loadedBrush[count].pixelBrushStrength = realBrushStrenght;
+                        count+=1;
+                    }
                 }
             }
         }
-        loadedBrush = new brushPixel[count];
-        computedBrush = new brushPixel[count];
-        count = 0;
-        for (int i = 0; i < brush.width; i++)
+        else
         {
-            for (int j = 0; j < brush.height; j++)
-            { 
-                Color pixel = brush.GetPixel(j, i);
-                // if it's a white color then just debug...
-                if (pixel == Color.black)
-                {
-                    loadedBrush[count].xPos = i-25;
-                    loadedBrush[count].yPos = j-25;
-                    loadedBrush[count].pixelBrushStrength = realBrushStrenght;
-                    count+=1;
-                }
-            }
+            Debug.Log("Brush Not Found - implement real error handling function");
         }
     }
 }

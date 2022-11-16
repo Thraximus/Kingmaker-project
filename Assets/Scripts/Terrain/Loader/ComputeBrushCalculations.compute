@@ -1,8 +1,9 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel SmoothManipultionTool
+#pragma kernel HardManipultionTool
+#pragma kernel NoiseManipultionTool
+#pragma kernel JaggedManipultionTool
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
 float brushWidth;
 float brushHeight;
 float realBrushStrenght;
@@ -18,7 +19,7 @@ struct brushPixel
 
 RWStructuredBuffer<brushPixel> loadedBrush;
 
-[numthreads(8,8,1)]
+[numthreads(64,1,1)]
 void SmoothManipultionTool (uint3 id : SV_DispatchThreadID)
 {        
     // First the alogirthm finds the center of the image, then it calculates the distance between the center and current pixel, 
@@ -35,4 +36,53 @@ void SmoothManipultionTool (uint3 id : SV_DispatchThreadID)
 
     loadedBrush[id.x].pixelBrushStrength = (loadedBrush[id.x].pixelBrushStrength * distPercentX) / 100;
     loadedBrush[id.x].pixelBrushStrength = (loadedBrush[id.x].pixelBrushStrength * distPercentY) / 100;
+}
+
+
+[numthreads(64,1,1)]
+void HardManipultionTool (uint3 id : SV_DispatchThreadID)
+{        
+    // returns values as is
+
+
+}
+
+[numthreads(64,1,1)]
+void JaggedManipultionTool (uint3 id : SV_DispatchThreadID)
+{        
+    // returns values as is
+    if (fmod(id.x,2)== 0)
+    {
+        loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength/2.0;
+    }
+
+    if (fmod(id.x,3) == 0)
+    {
+        loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength* 1.5;
+    }
+}
+
+
+[numthreads(64,1,1)]
+void NoiseManipultionTool (uint3 id : SV_DispatchThreadID) // TODO: FIX DOESNT WOK
+{        
+    // returns values as is
+    if (fmod(id.x,2)== 0)
+    {
+        float something = loadedBrush[id.x].xPos/50.0;
+        float absPoint = abs(something);
+        float absPointTimes =  absPoint*2;
+        loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength / absPointTimes;
+    }
+
+    if (fmod(id.x,3) == 0)
+    {
+        float point2 = loadedBrush[id.x].yPos/50.0;
+        float absPoint2 = abs(point2);
+        float absPointTimes2 =  absPoint2*2;
+        loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength * absPointTimes2;
+    }
+
+
+    
 }
