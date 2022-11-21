@@ -64,23 +64,22 @@ void JaggedManipultionTool (uint3 id : SV_DispatchThreadID)
 
 
 [numthreads(64,1,1)]
-void NoiseManipultionTool (uint3 id : SV_DispatchThreadID) // TODO: FIX DOESNT WOK
+void NoiseManipultionTool (uint3 id : SV_DispatchThreadID) // TODO: DONT USE DOESNT WORK PROPERLY
 {        
     // returns values as is
     if (fmod(id.x,2)== 0)
     {
-        float something = loadedBrush[id.x].xPos/50.0;
-        float absPoint = abs(something);
-        float absPointTimes =  absPoint*2;
-        loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength / absPointTimes;
+        loadedBrush[id.x].pixelBrushStrength = abs(loadedBrush[id.x].pixelBrushStrength - frac(sin(dot(abs(loadedBrush[id.x].xPos), float2(12.9898, 78.233))) * 43758.5453))/100;
     }
 
-    if (fmod(id.x,3) == 0)
+    if (fmod(loadedBrush[id.x].xPos,3) == 0)
     {
-        float point2 = loadedBrush[id.x].yPos/50.0;
-        float absPoint2 = abs(point2);
-        float absPointTimes2 =  absPoint2*2;
-        loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength * absPointTimes2;
+        loadedBrush[id.x].pixelBrushStrength = 0;
+    }
+
+    if(fmod(loadedBrush[id.x].xPos,9) == 0)
+    {
+        loadedBrush[id.x].pixelBrushStrength = abs(loadedBrush[id.x].pixelBrushStrength + frac(sin(dot(abs(loadedBrush[id.x].xPos), float2(12.9898, 78.233))) * 43758.5453))/100;
     }
 
 
