@@ -81,7 +81,4 @@ void NoiseManipultionTool (uint3 id : SV_DispatchThreadID) // TODO: DONT USE DOE
     {
         loadedBrush[id.x].pixelBrushStrength = abs(loadedBrush[id.x].pixelBrushStrength + frac(sin(dot(abs(loadedBrush[id.x].xPos), float2(12.9898, 78.233))) * 43758.5453))/100;
     }
-
-
-    
 }

@@ -763,12 +763,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   terrain: {fileID: 1653783123}
   brushDropoffShader: {fileID: 7200000, guid: 666c63621b1a9f74b95fd803dddf74fa, type: 3}
-  brushSize: 25
-  brushLength: 0
+  brushSize: 1
   mapNameForLoadSave: 
   heightmapSaveLoadBuffer: {fileID: 0}
-  brush: {fileID: 0}
+  originalBrush: {fileID: 0}
+  brushForManipulation: {fileID: 0}
   brushStrenght: 10
+  brushScaleIncrement: 0.1
 --- !u!154 &1653783122
 TerrainCollider:
   m_ObjectHideFlags: 0
