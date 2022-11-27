@@ -770,6 +770,15 @@ MonoBehaviour:
   brushForManipulation: {fileID: 0}
   brushStrenght: 10
   brushScaleIncrement: 0.1
+  splatHeights:
+  - textureIndex: 0
+    startingHeight: 0
+  - textureIndex: 1
+    startingHeight: 30
+  - textureIndex: 2
+    startingHeight: 60
+  - textureIndex: 3
+    startingHeight: 90
 --- !u!154 &1653783122
 TerrainCollider:
   m_ObjectHideFlags: 0
@@ -806,7 +815,7 @@ Terrain:
   m_DrawTreesAndFoliage: 1
   m_StaticShadowCaster: 0
   m_ReflectionProbeUsage: 1
-  m_MaterialTemplate: {fileID: 10652, guid: 0000000000000000f000000000000000, type: 0}
+  m_MaterialTemplate: {fileID: 10650, guid: 0000000000000000f000000000000000, type: 0}
   m_BakeLightProbesForTrees: 1
   m_PreserveTreePrototypeLayers: 0
   m_DeringLightProbesForTrees: 1

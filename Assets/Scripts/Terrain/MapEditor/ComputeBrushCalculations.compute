@@ -43,6 +43,7 @@ void SmoothManipultionTool (uint3 id : SV_DispatchThreadID)
 void HardManipultionTool (uint3 id : SV_DispatchThreadID)
 {        
     // returns values as is
+    // waste of gpu power change in code
 
 
 }
@@ -50,7 +51,6 @@ void HardManipultionTool (uint3 id : SV_DispatchThreadID)
 [numthreads(64,1,1)]
 void JaggedManipultionTool (uint3 id : SV_DispatchThreadID)
 {        
-    // returns values as is
     if (fmod(id.x,2)== 0)
     {
         loadedBrush[id.x].pixelBrushStrength = loadedBrush[id.x].pixelBrushStrength/2.0;
@@ -66,7 +66,6 @@ void JaggedManipultionTool (uint3 id : SV_DispatchThreadID)
 [numthreads(64,1,1)]
 void NoiseManipultionTool (uint3 id : SV_DispatchThreadID) // TODO: DONT USE DOESNT WORK PROPERLY
 {        
-    // returns values as is
     if (fmod(id.x,2)== 0)
     {
         loadedBrush[id.x].pixelBrushStrength = abs(loadedBrush[id.x].pixelBrushStrength - frac(sin(dot(abs(loadedBrush[id.x].xPos), float2(12.9898, 78.233))) * 43758.5453))/100;

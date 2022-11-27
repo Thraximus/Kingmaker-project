@@ -4,6 +4,11 @@ using UnityEngine;
 
 public class TerrainEditor : MonoBehaviour
 {
+    [System.Serializable] struct SplatHeights
+    {
+        public int textureIndex;
+        public float startingHeight;
+    };
     [SerializeField] private Terrain terrain;
     [SerializeField] private ComputeShader brushDropoffShader;
     [SerializeField] private float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
@@ -13,39 +18,100 @@ public class TerrainEditor : MonoBehaviour
     [SerializeField] private Texture2D brushForManipulation;        // Brush stored in memory, and manipulated(scaled)                  TODO: unserialize
     [SerializeField] private float brushStrenght;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?  TODO: unserialize
     [SerializeField] private float brushScaleIncrement = 0.1f;      // Increment in which the brush gets scaled up
+    [SerializeField] private SplatHeights[] splatHeights;
 
 
-    struct brushPixel
+    struct BrushPixel
     {
         public int xPos;
         public int yPos;
         public float pixelBrushStrength;
     }
 
+    struct TerrainTexture
+    {
+        public string name;
+        public int beginIndex;
+        public int endIndex;
+    }
+    private TerrainTexture[] terrainTextures;
+
     private int brushLength;
     private float[,] mesh;
     private RaycastHit hit;
     private Ray ray;
     private float realBrushStrenght;
-    private brushPixel[] loadedBrush;
-    private brushPixel[] computedBrush;
+    private BrushPixel[] loadedBrush;
+    private BrushPixel[] computedBrush;
     private int hitX;
     private int hitZ;
     private List<float[,]> terrainUndoStack = new List<float[,]>();
     private List<float[,]> terrainRedoStack = new List<float[,]>();
-    enum actionType
+    enum ActionType
     {
         TERRAIN,
         TEXTURE,
         OBJECT
     }
-    private List<actionType> undoMemoryStack = new List<actionType>();
-    private List<actionType> redoMemoryStack = new List<actionType>();
+    private List<ActionType> undoMemoryStack = new List<ActionType>();
+    private List<ActionType> redoMemoryStack = new List<ActionType>();
     private bool terrainManipulationActive = false;
     private TerrainData terrainData;
+    
   
     private void Start()
     {
+        // loadTerrainTextures();
+        int allTextureVariants = 0;
+        int uniqueTextures = 0;
+        
+        string [] directories = System.IO.Directory.GetDirectories("Assets/TerrainTextures");
+        foreach (string dir in directories)
+        {
+            uniqueTextures +=1;
+            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
+            
+            foreach (string texture in textures)
+            {
+                allTextureVariants +=1;                
+            }
+        }
+
+        terrainData = terrain.terrainData;
+        TerrainLayer[] terrainTexture = new TerrainLayer[allTextureVariants];
+        terrainTextures = new TerrainTexture[uniqueTextures];
+        allTextureVariants = 0;
+        uniqueTextures = 0;
+
+        foreach (string dir in directories)
+        {
+            terrainTextures[uniqueTextures].name = dir.Substring(dir.LastIndexOf('\\')+1);
+            terrainTextures[uniqueTextures].beginIndex = allTextureVariants;
+            int currentTextureNumOfVariations = 0;
+            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
+            
+            foreach (string texture in textures)
+            {     
+                currentTextureNumOfVariations+=1;
+                byte[] fileData = System.IO.File.ReadAllBytes(texture);
+                heightmapSaveLoadBuffer = new Texture2D(2, 2);
+                heightmapSaveLoadBuffer.LoadImage(fileData);
+                terrainTexture[allTextureVariants] = new TerrainLayer();
+                terrainTexture[allTextureVariants].diffuseTexture = heightmapSaveLoadBuffer;
+                terrainTexture[allTextureVariants].name = texture.Substring(texture.LastIndexOf('\\')+1);
+
+                terrainData.terrainLayers = terrainTexture;    
+                allTextureVariants +=1;
+                   
+            }
+            terrainTextures[uniqueTextures].endIndex = currentTextureNumOfVariations;
+            uniqueTextures +=1;
+        }
+
+        
+
+        Debug.Log(allTextureVariants);
+
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE
         realBrushStrenght = brushStrenght/1000;
         mesh = new float[terrain.terrainData.heightmapResolution,terrain.terrainData.heightmapResolution];
@@ -58,7 +124,7 @@ public class TerrainEditor : MonoBehaviour
         }
         
         this.terrain.terrainData.SetHeights(0,0,mesh);
-        loadBrushFromPngAndCalculateBrushPixels(true,"circleFullBrush");                                                // TODO: Runtime brush picker
+        LoadBrushFromPngAndCalculateBrushPixels(true,"circleFullBrush");                                                // TODO: Runtime brush picker
     }
 
     private float[,] returnCopyOfMesh(float[,] originalMesh)
@@ -82,7 +148,7 @@ public class TerrainEditor : MonoBehaviour
         {
             if(!Input.GetMouseButton(0) && !Input.GetMouseButton(1))
             {
-                clearRedoStack();
+                ClearRedoStack();
                 terrainManipulationActive = false;
             }
         }
@@ -91,28 +157,28 @@ public class TerrainEditor : MonoBehaviour
         {
             if(terrainManipulationActive == false)
             {
-                addToTerrainUndoStack();
+                AddToTerrainUndoStack();
             }
-            raiseOrLowerTerrain(true);
+            RaiseOrLowerTerrain(true);
         }
 
         if(Input.GetMouseButton(1))
         {
             if(terrainManipulationActive == false)
             {
-                addToTerrainUndoStack();
+                AddToTerrainUndoStack();
             }
-            raiseOrLowerTerrain(false);
+            RaiseOrLowerTerrain(false);
         }
 
         if(Input.GetKeyUp(KeyCode.K))                                // Temporary save key
         {
-            saveTerrainHeightmapToFolder(mapNameForLoadSave);        // TODO place this function on GUI object
+            SaveTerrainHeightmapToFolder(mapNameForLoadSave);        // TODO place this function on GUI object
         }
 
         if(Input.GetKeyUp(KeyCode.L))                                // Temporary load key
         {
-            loadTerrainfromFolder(mapNameForLoadSave);               // TODO place this function on GUI object
+            LoadTerrainfromFolder(mapNameForLoadSave);               // TODO place this function on GUI object
         }
 
         if(Input.GetKeyUp(KeyCode.Comma))                            // Temporary scale down key
@@ -120,8 +186,8 @@ public class TerrainEditor : MonoBehaviour
             if((brushSize -= brushScaleIncrement) < 4)
             {
                 brushSize -= brushScaleIncrement;                     // TODO place this function on GUI object
-                scaleBrush();
-                loadBrushFromPngAndCalculateBrushPixels(false);
+                ScaleBrush();
+                LoadBrushFromPngAndCalculateBrushPixels(false);
             }
         }
 
@@ -130,36 +196,89 @@ public class TerrainEditor : MonoBehaviour
             if((brushSize += brushScaleIncrement) > 0)
             {
                 brushSize += brushScaleIncrement;                     // TODO place this function on GUI object
-                scaleBrush();
-                loadBrushFromPngAndCalculateBrushPixels(false);
+                ScaleBrush();
+                LoadBrushFromPngAndCalculateBrushPixels(false);
             }
         }
 
         if(Input.GetKeyUp(KeyCode.G))   // Temporary undo key       replace G with Input.GetKeyUp(KeyCode.LeftControl) && Input.GetKeyUp(KeyCode.Z)
         {
-            undoAction();               // TODO place this function on GUI object
+            UndoAction();               // TODO place this function on GUI object
         }
         if(Input.GetKeyUp(KeyCode.H))   // Temporary undo key       replace G with Input.GetKeyUp(KeyCode.LeftControl) && Input.GetKeyUp(KeyCode.Z)
         {
-            redoAction();               // TODO place this function on GUI object
+            RedoAction();               // TODO place this function on GUI object
+        }
+
+        if(Input.GetKeyUp(KeyCode.T))
+        {
+            AutoTextureTerrain();
         }
     }
 
+    // -------------------------------- TEXTURE FUNCTIONALITY ------------------------------------------------------------------------------
+
+
+    private void AutoTextureTerrain()
+    {
+
+        float[,,] splatmapData = new float[terrainData.alphamapWidth,terrainData.alphamapHeight,terrainData.alphamapLayers];
+
+        for (int y = 0; y < terrainData.alphamapHeight; y++)
+        {
+            for (int x = 0; x < terrainData.alphamapWidth; x++)
+            {
+                float terrainHeight = terrainData.GetHeight(y,x);
+                float[] splat = new float[splatHeights.Length];
+
+                for (int i = 0; i < splatHeights.Length; i++)
+                {
+                    if(i == splatHeights.Length-1)
+                    {
+                        if(terrainHeight >= splatHeights[i].startingHeight/10)
+                        {
+                            splat[i] = 1;
+                        }
+                    }
+                    else if(i < splatHeights.Length-1)
+                    {
+                        if(terrainHeight >= splatHeights[i].startingHeight/10 && terrainHeight <= splatHeights[i+1].startingHeight/10)
+                        {
+                            splat[i] = 1;
+                        }
+                    } 
+                }
+
+                for(int j=0; j < splatHeights.Length;j++)
+                {
+                    splatmapData[x,y,j] = splat[j];
+                }
+            }
+        }
+
+        
+        //terrainData.terrainLayers.SetValue(terrainData.terrainLayers.GetValue(3),1);
+
+
+
+        terrainData.SetAlphamaps(0,0,splatmapData);
+    }
+    // -------------------------------- TEXTURE FUNCTIONALITY END ------------------------------------------------------------------------------
 
     // ------------------------------- REDO FUNCTIONALITY---------------------------------------------------------------
-    private void clearRedoStack()
+    private void ClearRedoStack()
     {
         redoMemoryStack.Clear();
         terrainRedoStack.Clear();
     }
-    private void addToTerrainRedoStack()
+    private void AddToTerrainRedoStack()
     {
-        redoMemoryStack.Add(actionType.TERRAIN);
+        redoMemoryStack.Add(ActionType.TERRAIN);
         terrainRedoStack.Add(returnCopyOfMesh(mesh));
     }
-    private void redoAction()
+    private void RedoAction()
     {
-        actionType previousUndoAction;
+        ActionType previousUndoAction;
         
         if(redoMemoryStack.Count > 0)
         {
@@ -169,34 +288,34 @@ public class TerrainEditor : MonoBehaviour
                 redoMemoryStack.RemoveAt(redoMemoryStack.Count-1);
             }
             
-            if(previousUndoAction == actionType.TERRAIN)
+            if(previousUndoAction == ActionType.TERRAIN)
             {
-                redoTerrainManipulation();
+                RedoTerrainManipulation();
             }
-            else if (previousUndoAction == actionType.TEXTURE)
+            else if (previousUndoAction == ActionType.TEXTURE)
             {
-                redoTextureManipulation();
+                RedoTextureManipulation();
             }
-            else if (previousUndoAction == actionType.OBJECT)
+            else if (previousUndoAction == ActionType.OBJECT)
             {
-                redoObjectManipulation();
+                RedoObjectManipulation();
             }
         }
     }
-    private void redoTerrainManipulation()
+    private void RedoTerrainManipulation()
     {
-        addToTerrainUndoStack();
+        AddToTerrainUndoStack();
         this.terrain.terrainData.SetHeights(0,0, terrainRedoStack[terrainRedoStack.Count-1]);
         mesh = returnCopyOfMesh(terrainRedoStack[terrainRedoStack.Count-1]);
         terrainRedoStack.RemoveAt(terrainRedoStack.Count-1);
     }
 
-    private void redoTextureManipulation()
+    private void RedoTextureManipulation()
     {
         // TODO texture undo logic
     }
 
-    private void redoObjectManipulation()
+    private void RedoObjectManipulation()
     {
         // TODO object undo logic
     }
@@ -206,30 +325,30 @@ public class TerrainEditor : MonoBehaviour
 
     // ------------------------------------------------ UNDO FUNCTIONALITY -------------------------------------------------------
 
-    private void undoAction()
+    private void UndoAction()
     {
-        actionType previousAction;
+        ActionType previousAction;
         if(undoMemoryStack.Count > 0)
         {
             previousAction = undoMemoryStack[undoMemoryStack.Count-1];
             undoMemoryStack.RemoveAt(undoMemoryStack.Count-1);
 
-            if(previousAction == actionType.TERRAIN)
+            if(previousAction == ActionType.TERRAIN)
             {
-                undoTerrainManipulation();
+                UndoTerrainManipulation();
             }
-            else if (previousAction == actionType.TEXTURE)
+            else if (previousAction == ActionType.TEXTURE)
             {
-                undoTextureManipulation();
+                UndoTextureManipulation();
             }
-            else if (previousAction == actionType.OBJECT)
+            else if (previousAction == ActionType.OBJECT)
             {
-                undoObjectManipulation();
+                UndoObjectManipulation();
             }
         }
     }
 
-    private void addToTerrainUndoStack()
+    private void AddToTerrainUndoStack()
     {
         if (undoMemoryStack.Count > 50)
         {
@@ -237,24 +356,24 @@ public class TerrainEditor : MonoBehaviour
             terrainUndoStack.RemoveAt(0);
         }
         terrainUndoStack.Add(returnCopyOfMesh(mesh));
-        undoMemoryStack.Add(actionType.TERRAIN);
+        undoMemoryStack.Add(ActionType.TERRAIN);
     }
 
 
-    private void undoTerrainManipulation()
+    private void UndoTerrainManipulation()
     {
-        addToTerrainRedoStack();
+        AddToTerrainRedoStack();
         this.terrain.terrainData.SetHeights(0,0, terrainUndoStack[terrainUndoStack.Count-1]);
         mesh = returnCopyOfMesh(terrainUndoStack[terrainUndoStack.Count-1]);
         terrainUndoStack.RemoveAt(terrainUndoStack.Count-1);
     }
 
-    private void undoTextureManipulation()
+    private void UndoTextureManipulation()
     {
         // TODO texture undo logic
     }
 
-    private void undoObjectManipulation()
+    private void UndoObjectManipulation()
     {
         // TODO object undo logic
     }
@@ -271,7 +390,7 @@ public class TerrainEditor : MonoBehaviour
     /// Loads terrain from heightmap in directory. 
     /// </summary>
     /// <param name="mapName">Name under which the map that is being loaded is saved under</param>
-    private void loadTerrainfromFolder(string mapName)
+    private void LoadTerrainfromFolder(string mapName)
     {
         byte[] fileData;
 
@@ -292,7 +411,7 @@ public class TerrainEditor : MonoBehaviour
                 }  
             }
             this.terrain.terrainData.SetHeights(0,0,mesh);
-            addToTerrainUndoStack();
+            AddToTerrainUndoStack();
         }
         else
         {
@@ -302,7 +421,7 @@ public class TerrainEditor : MonoBehaviour
     }
 
     /// <param name="mapName">The file name for the exported map</param>
-    private void saveTerrainHeightmapToFolder(string mapName)
+    private void SaveTerrainHeightmapToFolder(string mapName)
     {
         heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.heightmapResolution, terrain.terrainData.heightmapResolution);
         for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
@@ -321,13 +440,32 @@ public class TerrainEditor : MonoBehaviour
     }
 
 
+    private void SaveSplatmapsToFolder(string mapName)
+    {
+        heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.alphamapResolution, terrain.terrainData.alphamapResolution);
+        for( int i = 0; i < terrain.terrainData.alphamapResolution;i++ )
+        {
+            for( int j = 0; j < terrain.terrainData.alphamapResolution;j++ )
+            {
+                Color pixel = new Color(terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],1);
+                heightmapSaveLoadBuffer.SetPixel(i,j,pixel);
+            }     
+        }
+        heightmapSaveLoadBuffer.Apply();
+
+        byte[] _bytes =heightmapSaveLoadBuffer.EncodeToPNG();
+        System.IO.File.WriteAllBytes("Assets/ExportedHeightmaps/" + mapName + "-alphamap.png", _bytes);
+
+    }
+
+
     /// <summary>
     /// Loads brush (Optional).
     /// Calculates the position of black pixels on the loaded brush. 
     /// </summary>
     /// <param name="loadFromFile">Flag to indicate if it should be a new texture loaded from file or just recompute pixels for brush</param>
     /// <param name="brushName">Name of the file in the brush folder without the file extension (file needs to be .png)</param>
-    private void loadBrushFromPngAndCalculateBrushPixels(bool loadFromFile ,string brushName = "")
+    private void LoadBrushFromPngAndCalculateBrushPixels(bool loadFromFile ,string brushName = "")
     {
         byte[] fileData;
         Texture2D brushForLoading = null;
@@ -362,8 +500,8 @@ public class TerrainEditor : MonoBehaviour
                     }
                 }
             }
-            loadedBrush = new brushPixel[count];
-            computedBrush = new brushPixel[count];
+            loadedBrush = new BrushPixel[count];
+            computedBrush = new BrushPixel[count];
             count = 0;
             for (int i = 0; i < brushForLoading.width; i++)
             {
@@ -387,6 +525,28 @@ public class TerrainEditor : MonoBehaviour
         }
     }
 
+    private void loadTerrainTextures()
+    {
+        terrainData = terrain.terrainData;
+        
+        TerrainLayer[] terrainTexture = new TerrainLayer[4];
+
+        byte[] fileData = System.IO.File.ReadAllBytes("Assets/TerrainTextures/Dirt/sand/textures/dirt_lighted_down.png");
+        heightmapSaveLoadBuffer = new Texture2D(2, 2);
+        heightmapSaveLoadBuffer.LoadImage(fileData);
+        terrainTexture[0] = new TerrainLayer();
+        terrainTexture[0].diffuseTexture = heightmapSaveLoadBuffer;
+        terrainTexture[0].name = "dirt_lighted_down.png";
+        
+        string [] files = System.IO.Directory.GetFiles("Assets/TerrainTextures");
+        foreach (string file in files)
+        {
+            //Do work on the files here
+        }
+
+        terrainData.terrainLayers = terrainTexture;
+    }
+
     // --------------------------------------------- LOAD AND SAVE FROM FILE END ---------------------------------------------------------------------------------
     
 
@@ -396,7 +556,7 @@ public class TerrainEditor : MonoBehaviour
     /// Raises or loweres terrain at the mouse position according to the brush. 
     /// </summary>
     /// <param name="raise">Flag that determines if terains should be lowered or raised (True = raise) (False = lower)</param>
-    private void raiseOrLowerTerrain(bool raise)
+    private void RaiseOrLowerTerrain(bool raise)
     {
         var modifier = 1;
         if(!raise)
@@ -456,7 +616,7 @@ public class TerrainEditor : MonoBehaviour
     /// <summary>
     /// Scales the loaded brush. 
     /// </summary>
-    private void scaleBrush()
+    private void ScaleBrush()
     {
         int targetWidth = (int)Mathf.Round(originalBrush.width*brushSize);
         int targetHeight = (int)Mathf.Round(originalBrush.height*brushSize);
