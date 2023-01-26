@@ -57,60 +57,12 @@ public class TerrainEditor : MonoBehaviour
     private List<ActionType> redoMemoryStack = new List<ActionType>();
     private bool terrainManipulationActive = false;
     private TerrainData terrainData;
+    private int allTextureVariants = -0;
     
   
     private void Start()
     {
-        // loadTerrainTextures();
-        int allTextureVariants = 0;
-        int uniqueTextures = 0;
-        
-        string [] directories = System.IO.Directory.GetDirectories("Assets/TerrainTextures");
-        foreach (string dir in directories)
-        {
-            uniqueTextures +=1;
-            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
-            
-            foreach (string texture in textures)
-            {
-                allTextureVariants +=1;                
-            }
-        }
-
-        terrainData = terrain.terrainData;
-        TerrainLayer[] terrainTexture = new TerrainLayer[allTextureVariants];
-        terrainTextures = new TerrainTexture[uniqueTextures];
-        allTextureVariants = 0;
-        uniqueTextures = 0;
-
-        foreach (string dir in directories)
-        {
-            terrainTextures[uniqueTextures].name = dir.Substring(dir.LastIndexOf('\\')+1);
-            terrainTextures[uniqueTextures].beginIndex = allTextureVariants;
-            int currentTextureNumOfVariations = 0;
-            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
-            
-            foreach (string texture in textures)
-            {     
-                currentTextureNumOfVariations+=1;
-                byte[] fileData = System.IO.File.ReadAllBytes(texture);
-                heightmapSaveLoadBuffer = new Texture2D(2, 2);
-                heightmapSaveLoadBuffer.LoadImage(fileData);
-                terrainTexture[allTextureVariants] = new TerrainLayer();
-                terrainTexture[allTextureVariants].diffuseTexture = heightmapSaveLoadBuffer;
-                terrainTexture[allTextureVariants].name = texture.Substring(texture.LastIndexOf('\\')+1);
-
-                terrainData.terrainLayers = terrainTexture;    
-                allTextureVariants +=1;
-                   
-            }
-            terrainTextures[uniqueTextures].endIndex = currentTextureNumOfVariations;
-            uniqueTextures +=1;
-        }
-
-        
-
-        Debug.Log(allTextureVariants);
+        loadTerrainTextures();
 
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE
         realBrushStrenght = brushStrenght/1000;
@@ -223,33 +175,48 @@ public class TerrainEditor : MonoBehaviour
     {
 
         float[,,] splatmapData = new float[terrainData.alphamapWidth,terrainData.alphamapHeight,terrainData.alphamapLayers];
+        int tempTextureIndex = -1;
+        Debug.Log("textures len: " + terrainTextures.Length);
+        Debug.Log("splat len: " + splatHeights.Length);
+        Debug.Log(terrainTextures[0].beginIndex);
+        Debug.Log(terrainTextures[0].endIndex);
+
+         Debug.Log(terrainTextures[1].beginIndex);
+        Debug.Log(terrainTextures[1].endIndex);
+
+         Debug.Log(terrainTextures[2].beginIndex);
+        Debug.Log(terrainTextures[2].endIndex);
+
+         Debug.Log(terrainTextures[3].beginIndex);
+        Debug.Log(terrainTextures[3].endIndex);
 
         for (int y = 0; y < terrainData.alphamapHeight; y++)
         {
             for (int x = 0; x < terrainData.alphamapWidth; x++)
             {
                 float terrainHeight = terrainData.GetHeight(y,x);
-                float[] splat = new float[splatHeights.Length];
-
+                float[] splat = new float[allTextureVariants];
+                
                 for (int i = 0; i < splatHeights.Length; i++)
                 {
+                    tempTextureIndex = Random.Range(terrainTextures[i].beginIndex,terrainTextures[i].endIndex);
                     if(i == splatHeights.Length-1)
                     {
                         if(terrainHeight >= splatHeights[i].startingHeight/10)
                         {
-                            splat[i] = 1;
+                            splat[tempTextureIndex] = 1;
                         }
                     }
                     else if(i < splatHeights.Length-1)
                     {
                         if(terrainHeight >= splatHeights[i].startingHeight/10 && terrainHeight <= splatHeights[i+1].startingHeight/10)
                         {
-                            splat[i] = 1;
+                            splat[tempTextureIndex] = 1;
                         }
                     } 
                 }
 
-                for(int j=0; j < splatHeights.Length;j++)
+                for(int j=0; j < splat.Length;j++)
                 {
                     splatmapData[x,y,j] = splat[j];
                 }
@@ -420,6 +387,9 @@ public class TerrainEditor : MonoBehaviour
 
     }
 
+    /// <summary>
+    /// Saves the heightmap of the map as a .png file for future loading
+    /// </summary>
     /// <param name="mapName">The file name for the exported map</param>
     private void SaveTerrainHeightmapToFolder(string mapName)
     {
@@ -525,26 +495,64 @@ public class TerrainEditor : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Loads all terrain textures from the Assets/TerrainTextures folder.   
+    /// Each texture should be stored in its own folder.   
+    /// Textures can consist of 1 or more variants (in .png format).
+    /// </summary>
     private void loadTerrainTextures()
     {
-        terrainData = terrain.terrainData;
+        int uniqueTextures = 0;
         
-        TerrainLayer[] terrainTexture = new TerrainLayer[4];
-
-        byte[] fileData = System.IO.File.ReadAllBytes("Assets/TerrainTextures/Dirt/sand/textures/dirt_lighted_down.png");
-        heightmapSaveLoadBuffer = new Texture2D(2, 2);
-        heightmapSaveLoadBuffer.LoadImage(fileData);
-        terrainTexture[0] = new TerrainLayer();
-        terrainTexture[0].diffuseTexture = heightmapSaveLoadBuffer;
-        terrainTexture[0].name = "dirt_lighted_down.png";
-        
-        string [] files = System.IO.Directory.GetFiles("Assets/TerrainTextures");
-        foreach (string file in files)
+        string [] directories = System.IO.Directory.GetDirectories("Assets/TerrainTextures");
+        foreach (string dir in directories)
         {
-            //Do work on the files here
+            uniqueTextures +=1;
+            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
+            
+            foreach (string texture in textures)
+            {
+                allTextureVariants +=1;                
+            }
         }
 
-        terrainData.terrainLayers = terrainTexture;
+        terrainData = terrain.terrainData;
+        TerrainLayer[] terrainTexture = new TerrainLayer[allTextureVariants];
+        terrainTextures = new TerrainTexture[uniqueTextures];
+        allTextureVariants = 0;
+        uniqueTextures = 0;
+
+        foreach (string dir in directories)
+        {
+            terrainTextures[uniqueTextures].name = dir.Substring(dir.LastIndexOf('\\')+1);
+            terrainTextures[uniqueTextures].beginIndex = allTextureVariants;
+            int currentTextureNumOfVariations = 0;
+            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
+            
+            foreach (string texture in textures)
+            {     
+                currentTextureNumOfVariations+=1;
+                byte[] fileData = System.IO.File.ReadAllBytes(texture);
+                heightmapSaveLoadBuffer = new Texture2D(2, 2);
+                heightmapSaveLoadBuffer.LoadImage(fileData);
+                terrainTexture[allTextureVariants] = new TerrainLayer();
+                terrainTexture[allTextureVariants].diffuseTexture = heightmapSaveLoadBuffer;
+                terrainTexture[allTextureVariants].name = texture.Substring(texture.LastIndexOf('\\')+1);
+
+                terrainData.terrainLayers = terrainTexture;    
+                allTextureVariants +=1;
+                   
+            }
+            if(currentTextureNumOfVariations<2)
+            {
+                terrainTextures[uniqueTextures].endIndex = terrainTextures[uniqueTextures].beginIndex;
+            }
+            else if (currentTextureNumOfVariations > 1)
+            {
+                terrainTextures[uniqueTextures].endIndex = terrainTextures[uniqueTextures].beginIndex + currentTextureNumOfVariations;
+            }
+            uniqueTextures +=1;
+        }
     }
 
     // --------------------------------------------- LOAD AND SAVE FROM FILE END ---------------------------------------------------------------------------------
