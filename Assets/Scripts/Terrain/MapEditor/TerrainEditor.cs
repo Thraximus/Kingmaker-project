@@ -171,24 +171,14 @@ public class TerrainEditor : MonoBehaviour
     // -------------------------------- TEXTURE FUNCTIONALITY ------------------------------------------------------------------------------
 
 
+    /// <summary>
+    /// Call to automatically texture the entire map. Texturing is done based on the terrain height.
+    /// </summary>
     private void AutoTextureTerrain()
     {
 
         float[,,] splatmapData = new float[terrainData.alphamapWidth,terrainData.alphamapHeight,terrainData.alphamapLayers];
         int tempTextureIndex = -1;
-        Debug.Log("textures len: " + terrainTextures.Length);
-        Debug.Log("splat len: " + splatHeights.Length);
-        Debug.Log(terrainTextures[0].beginIndex);
-        Debug.Log(terrainTextures[0].endIndex);
-
-         Debug.Log(terrainTextures[1].beginIndex);
-        Debug.Log(terrainTextures[1].endIndex);
-
-         Debug.Log(terrainTextures[2].beginIndex);
-        Debug.Log(terrainTextures[2].endIndex);
-
-         Debug.Log(terrainTextures[3].beginIndex);
-        Debug.Log(terrainTextures[3].endIndex);
 
         for (int y = 0; y < terrainData.alphamapHeight; y++)
         {
@@ -222,11 +212,6 @@ public class TerrainEditor : MonoBehaviour
                 }
             }
         }
-
-        
-        //terrainData.terrainLayers.SetValue(terrainData.terrainLayers.GetValue(3),1);
-
-
 
         terrainData.SetAlphamaps(0,0,splatmapData);
     }
