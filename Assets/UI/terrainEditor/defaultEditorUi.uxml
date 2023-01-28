@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement style="align-items: flex-end; height: 100%; width: 100%;">
+        <ui:VisualElement name="Container" style="height: 100%; width: 20%; position: relative; background-color: rgb(72, 68, 68);">
+            <ui:ScrollView>
+                <ui:VisualElement name="TextureSection">
+                    <ui:Label text="--Texture--" display-tooltip-when-elided="true" name="SubesectionTexturingLabel" />
+                    <ui:Foldout text="Texture heights " name="TextureCuttofs" />
+                    <ui:Button text="Auto texture world" display-tooltip-when-elided="true" name="AutoTexture" />
+                </ui:VisualElement>
+                <ui:VisualElement name="BrushSection">
+                    <ui:Label text="--Terrain Brush--" display-tooltip-when-elided="true" name="SubsectionBrushLabel" style="height: 15px;" />
+                    <ui:Toggle label="Enable terrain manipulation" name="EnableTerrainManipuation" focusable="false" />
+                    <ui:DropdownField label="Brush" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="BrushPicker" focusable="false" style="flex-direction: column;" />
+                    <ui:DropdownField label="Brush effect" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="BrushEffectPicker" focusable="false" style="flex-direction: column;" />
+                    <ui:Slider picking-mode="Ignore" label="Brush Size" value="1" high-value="4" name="BrushSize" low-value="0.1" focusable="false" style="height: 17px;" />
+                    <ui:SliderInt picking-mode="Ignore" label="Brush Strength" value="50" high-value="100" name="BrushStrength" low-value="1" focusable="false" style="height: 17px;" />
+                </ui:VisualElement>
+                <ui:VisualElement name="SaveAndLoadSection">
+                    <ui:Label text="--Map Saving and Loading--" display-tooltip-when-elided="true" name="SubsectionSaveLabel" />
+                    <ui:TextField picking-mode="Ignore" label="Map Name" value="Enter map name here" name="MapName" tooltip="Name of map to save or load" max-length="50" password="false" is-delayed="false" multiline="false" focusable="true" style="justify-content: flex-start; flex-direction: column; flex-wrap: nowrap; align-items: stretch;" />
+                    <ui:Button text="Load Map" display-tooltip-when-elided="true" name="MapLoadButton" focusable="false" />
+                    <ui:Button text="Save Map" display-tooltip-when-elided="true" name="MapSaveButton" label="EnableTerrainManipulation" focusable="false" />
+                </ui:VisualElement>
+            </ui:ScrollView>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

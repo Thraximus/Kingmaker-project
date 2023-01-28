@@ -196,6 +196,68 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 116afa06ff3e3804f8316b072b87277e, type: 3}
+--- !u!1 &90233338
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 90233340}
+  - component: {fileID: 90233339}
+  - component: {fileID: 90233341}
+  m_Layer: 5
+  m_Name: UIDocument
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &90233339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90233338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_PanelSettings: {fileID: 11400000, guid: fbd2117d046377844abfbb284bbc936d, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: b9a8c1d29de13a34a9d7476ac1a24713, type: 3}
+  m_SortingOrder: 0
+--- !u!4 &90233340
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90233338}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 4
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &90233341
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90233338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 298d446186fcfad4e8d96caf306c660b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  terrain: {fileID: 1653783121}
 --- !u!1001 &303411431
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -763,12 +825,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   terrain: {fileID: 1653783123}
   brushDropoffShader: {fileID: 7200000, guid: 666c63621b1a9f74b95fd803dddf74fa, type: 3}
-  brushSize: 1
+  brushSize: 20
   mapNameForLoadSave: 
   heightmapSaveLoadBuffer: {fileID: 0}
   originalBrush: {fileID: 0}
   brushForManipulation: {fileID: 0}
-  brushStrenght: 10
+  brushStrength: 1
   brushScaleIncrement: 0.1
   splatHeights:
   - textureIndex: 0
@@ -779,6 +841,10 @@ MonoBehaviour:
     startingHeight: 60
   - textureIndex: 3
     startingHeight: 90
+  selectedBrush: circleFullBrush
+  terrainManipulationEnabled: 1
+  brushEffect: SmoothManipultionTool
+  realBrushStrength: 0
 --- !u!154 &1653783122
 TerrainCollider:
   m_ObjectHideFlags: 0

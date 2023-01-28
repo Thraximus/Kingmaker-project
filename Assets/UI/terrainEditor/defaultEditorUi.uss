@@ -1,0 +1,4 @@
+#MapName Label {
+    max-width: none;
+    width: 20px;
+}

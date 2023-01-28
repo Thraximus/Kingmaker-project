@@ -11,15 +11,17 @@ public class TerrainEditor : MonoBehaviour
     };
     [SerializeField] private Terrain terrain;
     [SerializeField] private ComputeShader brushDropoffShader;
-    [SerializeField] private float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
-    [SerializeField] private string mapNameForLoadSave;             // Name under which the map will be saved                           TODO: unserialize
+     public float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
+    [SerializeField] public string mapNameForLoadSave;             // Name under which the map will be saved                           TODO: unserialize
     [SerializeField] private  Texture2D heightmapSaveLoadBuffer;    // Memory buffer used to store the map to be loaded or to be saved  TODO: unserialize
     [SerializeField] private Texture2D originalBrush;               // Original brush loaded from file                                  TODO: unserialize
     [SerializeField] private Texture2D brushForManipulation;        // Brush stored in memory, and manipulated(scaled)                  TODO: unserialize
-    [SerializeField] private float brushStrenght;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?  TODO: unserialize
+    [HideInInspector] public float brushStrength;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?  TODO: unserialize
     [SerializeField] private float brushScaleIncrement = 0.1f;      // Increment in which the brush gets scaled up
     [SerializeField] private SplatHeights[] splatHeights;
-
+    [HideInInspector] public string selectedBrush = "circleFullBrush" ;
+    [HideInInspector] public bool terrainManipulationEnabled = true; 
+    [HideInInspector] public string brushEffect = "SmoothManipultionTool";
 
     struct BrushPixel
     {
@@ -40,7 +42,7 @@ public class TerrainEditor : MonoBehaviour
     private float[,] mesh;
     private RaycastHit hit;
     private Ray ray;
-    private float realBrushStrenght;
+    [HideInInspector] public float realBrushStrength;
     private BrushPixel[] loadedBrush;
     private BrushPixel[] computedBrush;
     private int hitX;
@@ -65,7 +67,7 @@ public class TerrainEditor : MonoBehaviour
         loadTerrainTextures();
 
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE
-        realBrushStrenght = brushStrenght/1000;
+        realBrushStrength = brushStrength/1000;
         mesh = new float[terrain.terrainData.heightmapResolution,terrain.terrainData.heightmapResolution];
         for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
         {
@@ -76,7 +78,7 @@ public class TerrainEditor : MonoBehaviour
         }
         
         this.terrain.terrainData.SetHeights(0,0,mesh);
-        LoadBrushFromPngAndCalculateBrushPixels(true,"circleFullBrush");                                                // TODO: Runtime brush picker
+        LoadBrushFromPngAndCalculateBrushPixels(true,selectedBrush);                                                // TODO: Runtime brush picker
     }
 
     private float[,] returnCopyOfMesh(float[,] originalMesh)
@@ -98,14 +100,14 @@ public class TerrainEditor : MonoBehaviour
     {
         if (terrainManipulationActive == true)
         {
-            if(!Input.GetMouseButton(0) && !Input.GetMouseButton(1))
+            if(!Input.GetMouseButton(0) && !Input.GetMouseButton(1) )
             {
                 ClearRedoStack();
                 terrainManipulationActive = false;
             }
         }
 
-        if(Input.GetMouseButton(0))
+        if(Input.GetMouseButton(0) && terrainManipulationEnabled && Input.mousePosition.x < Screen.width - (Screen.width/100*22) )
         {
             if(terrainManipulationActive == false)
             {
@@ -114,7 +116,7 @@ public class TerrainEditor : MonoBehaviour
             RaiseOrLowerTerrain(true);
         }
 
-        if(Input.GetMouseButton(1))
+        if(Input.GetMouseButton(1) && terrainManipulationEnabled && Input.mousePosition.x < Screen.width - (Screen.width/100*22))
         {
             if(terrainManipulationActive == false)
             {
@@ -135,7 +137,7 @@ public class TerrainEditor : MonoBehaviour
 
         if(Input.GetKeyUp(KeyCode.Comma))                            // Temporary scale down key
         {
-            if((brushSize -= brushScaleIncrement) < 4)
+            if((brushSize - brushScaleIncrement) < 4)
             {
                 brushSize -= brushScaleIncrement;                     // TODO place this function on GUI object
                 ScaleBrush();
@@ -145,7 +147,7 @@ public class TerrainEditor : MonoBehaviour
 
         if(Input.GetKeyUp(KeyCode.Period))                           // Temporary scale up key
         {
-            if((brushSize += brushScaleIncrement) > 0)
+            if((brushSize + brushScaleIncrement) > 0)
             {
                 brushSize += brushScaleIncrement;                     // TODO place this function on GUI object
                 ScaleBrush();
@@ -174,7 +176,7 @@ public class TerrainEditor : MonoBehaviour
     /// <summary>
     /// Call to automatically texture the entire map. Texturing is done based on the terrain height.
     /// </summary>
-    private void AutoTextureTerrain()
+    public void AutoTextureTerrain()
     {
 
         float[,,] splatmapData = new float[terrainData.alphamapWidth,terrainData.alphamapHeight,terrainData.alphamapLayers];
@@ -342,7 +344,7 @@ public class TerrainEditor : MonoBehaviour
     /// Loads terrain from heightmap in directory. 
     /// </summary>
     /// <param name="mapName">Name under which the map that is being loaded is saved under</param>
-    private void LoadTerrainfromFolder(string mapName)
+    public void LoadTerrainfromFolder(string mapName)
     {
         byte[] fileData;
 
@@ -376,7 +378,7 @@ public class TerrainEditor : MonoBehaviour
     /// Saves the heightmap of the map as a .png file for future loading
     /// </summary>
     /// <param name="mapName">The file name for the exported map</param>
-    private void SaveTerrainHeightmapToFolder(string mapName)
+    public void SaveTerrainHeightmapToFolder(string mapName)
     {
         heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.heightmapResolution, terrain.terrainData.heightmapResolution);
         for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
@@ -420,7 +422,7 @@ public class TerrainEditor : MonoBehaviour
     /// </summary>
     /// <param name="loadFromFile">Flag to indicate if it should be a new texture loaded from file or just recompute pixels for brush</param>
     /// <param name="brushName">Name of the file in the brush folder without the file extension (file needs to be .png)</param>
-    private void LoadBrushFromPngAndCalculateBrushPixels(bool loadFromFile ,string brushName = "")
+    public void LoadBrushFromPngAndCalculateBrushPixels(bool loadFromFile ,string brushName = "")
     {
         byte[] fileData;
         Texture2D brushForLoading = null;
@@ -468,7 +470,7 @@ public class TerrainEditor : MonoBehaviour
                     {
                         loadedBrush[count].xPos = i- (int)Mathf.Round(brushForLoading.width/2);
                         loadedBrush[count].yPos = j- (int)Mathf.Round(brushForLoading.height/2);
-                        loadedBrush[count].pixelBrushStrength = realBrushStrenght;
+                        loadedBrush[count].pixelBrushStrength = realBrushStrength;
                         count+=1;
                     }
                 }
@@ -562,13 +564,13 @@ public class TerrainEditor : MonoBehaviour
         {
             hitZ = Mathf.RoundToInt((hit.point - terrain.GetPosition()).z/terrain.terrainData.size.z * terrain.terrainData.heightmapResolution);
             hitX = Mathf.RoundToInt((hit.point - terrain.GetPosition()).x/terrain.terrainData.size.x * terrain.terrainData.heightmapResolution);
-            realBrushStrenght = brushStrenght/250;
+            realBrushStrength = brushStrength/250;
             // calculate brush strenghts with compute shader
             brushDropoffShader.SetFloat("brushWidth",brushForManipulation.width);
             brushDropoffShader.SetFloat("brushHeight",brushForManipulation.height);
             ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));   
             buffer.SetData(loadedBrush);
-            int kernel = brushDropoffShader.FindKernel("SmoothManipultionTool");
+            int kernel = brushDropoffShader.FindKernel(brushEffect);
             brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
             brushDropoffShader.Dispatch(kernel,(int)Mathf.Ceil(loadedBrush.Length/64f),1,1);
             brushLength = (int)Mathf.Ceil(loadedBrush.Length/64f);
@@ -598,7 +600,7 @@ public class TerrainEditor : MonoBehaviour
                         mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 0;
                     }
                 }
-                loadedBrush[i].pixelBrushStrength = realBrushStrenght;
+                loadedBrush[i].pixelBrushStrength = realBrushStrength;
             }
             this.terrain.terrainData.SetHeights(0,0,mesh);
             terrainManipulationActive = true;
@@ -609,7 +611,7 @@ public class TerrainEditor : MonoBehaviour
     /// <summary>
     /// Scales the loaded brush. 
     /// </summary>
-    private void ScaleBrush()
+    public void ScaleBrush()
     {
         int targetWidth = (int)Mathf.Round(originalBrush.width*brushSize);
         int targetHeight = (int)Mathf.Round(originalBrush.height*brushSize);
