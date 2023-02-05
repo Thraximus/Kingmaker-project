@@ -22,7 +22,7 @@ public class TerrainEditor : MonoBehaviour
     [HideInInspector] public string selectedBrush = "circleFullBrush" ;
     [HideInInspector] public bool terrainManipulationEnabled = true; 
     [HideInInspector] public string brushEffect = "SmoothManipultionTool";
-
+    
     struct BrushPixel
     {
         public int xPos;
@@ -522,6 +522,10 @@ public class TerrainEditor : MonoBehaviour
                 byte[] fileData = System.IO.File.ReadAllBytes(texture);
                 heightmapSaveLoadBuffer = new Texture2D(2, 2);
                 heightmapSaveLoadBuffer.LoadImage(fileData);
+                if (true)                                                                               // TODO: add option to pick whether or not to use alpha channel (currently hardcoded to ignore)
+                {
+                    ClearAlphaFromTexture(heightmapSaveLoadBuffer);
+                }
                 terrainTexture[allTextureVariants] = new TerrainLayer();
                 terrainTexture[allTextureVariants].diffuseTexture = heightmapSaveLoadBuffer;
                 terrainTexture[allTextureVariants].name = texture.Substring(texture.LastIndexOf('\\')+1);
@@ -546,6 +550,22 @@ public class TerrainEditor : MonoBehaviour
     
 
     // --------------------------------------------- MANIPULATION AND CALCULATIONS -------------------------------------------------------------------------------
+
+
+    /// <summary>
+    /// Changes the entire alpha chanel of input texture to 0 (Changes the original texture)
+    /// </summary>
+    /// <param name="texture">Texture whose alpha channel is changed.</param>
+    private void ClearAlphaFromTexture(Texture2D texture) 
+    {
+        Color[] pixels = texture.GetPixels();
+        for (int i=0 ; i < pixels.Length; i++)
+        {
+            pixels[i].a = 0;
+        }
+        texture.SetPixels(pixels);
+        texture.Apply();
+    }
 
     /// <summary>
     /// Raises or loweres terrain at the mouse position according to the brush. 
