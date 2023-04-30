@@ -8,6 +8,9 @@ public class uiFunctionality : MonoBehaviour
     public TerrainEditor terrain;
     // Start is called before the first frame update
     private VisualElement root;
+
+    private TerrainEditor.SplatHeights[] splatHeightsLocal;
+
     private void OnEnable() 
     {
         
@@ -27,6 +30,7 @@ public class uiFunctionality : MonoBehaviour
         handleEnableTerrainManipulation();
         handleBrushStrength();
         handleBrushSize();
+        handleAutoTextureSetter();
     }
     private void handleBrushStrength()
     {
@@ -71,6 +75,58 @@ public class uiFunctionality : MonoBehaviour
         });
     }
 
+    private void handleAutoTextureSetter()
+    {
+        Foldout textureCutoffs = root.Q<Foldout>("TextureCutoffs");   
+        terrain.loadTerrainTextures();  // has to be done to be sure that textures are loaded
+        splatHeightsLocal = new TerrainEditor.SplatHeights[terrain.getNumOfUniqueTextures()];
+
+        for(int i=0; i< terrain.getNumOfUniqueTextures();i++)
+        {
+            textureCutoffs.Add(createTextureDataObject(i,terrain.getNumOfUniqueTextures()));
+        }
+        textureCutoffs.value = false;
+        terrain.SetSplatHeights(splatHeightsLocal);
+
+        foreach (VisualElement childSubElement in textureCutoffs.Children())
+        {
+            (childSubElement.ElementAt(3) as SliderInt).RegisterValueChangedCallback((evt)=>
+            {
+                (childSubElement.ElementAt(4) as Label).text = "Value: " + (childSubElement.ElementAt(3) as SliderInt).value;
+                splatHeightsLocal[textureCutoffs.IndexOf(childSubElement)].startingHeight = (childSubElement.ElementAt(3) as SliderInt).value;
+                terrain.SetSplatHeights(splatHeightsLocal);
+            });
+
+
+            (childSubElement.ElementAt(1) as DropdownField).RegisterValueChangedCallback((evt)=>
+            {
+                splatHeightsLocal[textureCutoffs.IndexOf(childSubElement)].textureIndex = (childSubElement.ElementAt(1) as DropdownField).index;
+                terrain.SetSplatHeights(splatHeightsLocal);
+            });
+            
+        }
+
+    }
+
+    private Foldout createTextureDataObject(int number, int total)
+    {
+        Foldout tmp = new Foldout();
+        tmp.text = "Layer"+ number;
+        tmp.Add(new Label("Texture"));
+        List<string> choicesList = terrain.getTextureNames();
+        tmp.Add(new DropdownField(choicesList,choicesList[0]));
+        (tmp.ElementAt(1) as DropdownField).index = number;
+        tmp.Add(new Label("Height"));
+        tmp.Add(new SliderInt(0,100,SliderDirection.Horizontal,1));
+        // SliderInt tmpSlider = (tmp.ElementAt(3) as SliderInt);
+        (tmp.ElementAt(3) as SliderInt).value = number*(90/(total-1));
+        tmp.Add(new Label("Value: "+ (tmp.ElementAt(3) as SliderInt).value));
+        tmp.value = false;
+        splatHeightsLocal[number].startingHeight = (tmp.ElementAt(3) as SliderInt).value;
+        splatHeightsLocal[number].textureIndex = (tmp.ElementAt(1) as DropdownField).index;
+        return tmp;
+    }
+
     private void handleBrushEffectPicker()
     {
         DropdownField brushEffectPicker = root.Q<DropdownField>("BrushEffectPicker");
@@ -90,8 +146,9 @@ public class uiFunctionality : MonoBehaviour
         loadMapButton.clicked += () => terrain.LoadTerrainfromFolder(terrain.mapNameForLoadSave);
     }
 
-    private void handleTextures()
+    public void handleTextures()
     {
+        
         Button autoTextureButton = root.Q<Button>("AutoTexture");
         autoTextureButton.clicked += () => terrain.AutoTextureTerrain();
     }

@@ -954,10 +954,10 @@ MonoBehaviour:
   splatHeights:
   - textureIndex: 0
     startingHeight: 0
-  - textureIndex: 1
-    startingHeight: 30
   - textureIndex: 2
-    startingHeight: 60
+    startingHeight: 30
+  - textureIndex: 1
+    startingHeight: 38
   - textureIndex: 3
     startingHeight: 90
   selectedBrush: circleFullBrush

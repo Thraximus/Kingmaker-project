@@ -4,7 +4,7 @@
             <ui:ScrollView>
                 <ui:VisualElement name="TextureSection">
                     <ui:Label text="--Texture--" display-tooltip-when-elided="true" name="SubesectionTexturingLabel" />
-                    <ui:Foldout text="Texture heights " name="TextureCuttofs" />
+                    <ui:Foldout text="Texture heights " name="TextureCutoffs" />
                     <ui:Button text="Auto texture world" display-tooltip-when-elided="true" name="AutoTexture" />
                 </ui:VisualElement>
                 <ui:VisualElement name="BrushSection">

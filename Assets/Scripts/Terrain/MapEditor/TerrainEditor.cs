@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class TerrainEditor : MonoBehaviour
 {
-    [System.Serializable] struct SplatHeights
+    [System.Serializable] public struct SplatHeights
     {
         public int textureIndex;
         public float startingHeight;
@@ -18,7 +18,7 @@ public class TerrainEditor : MonoBehaviour
     [SerializeField] private Texture2D brushForManipulation;        // Brush stored in memory, and manipulated(scaled)                  TODO: unserialize
     [HideInInspector] public float brushStrength;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?  TODO: unserialize
     [SerializeField] private float brushScaleIncrement = 0.1f;      // Increment in which the brush gets scaled up
-    [SerializeField] private SplatHeights[] splatHeights;
+    [HideInInspector] public SplatHeights[] splatHeights;
     [HideInInspector] public string selectedBrush = "circleFullBrush" ;
     [HideInInspector] public bool terrainManipulationEnabled = true; 
     [HideInInspector] public string brushEffect = "SmoothManipultionTool";
@@ -53,7 +53,8 @@ public class TerrainEditor : MonoBehaviour
     {
         TERRAIN,
         TEXTURE,
-        OBJECT
+        OBJECT,
+        WATER
     }
     private List<ActionType> undoMemoryStack = new List<ActionType>();
     private List<ActionType> redoMemoryStack = new List<ActionType>();
@@ -172,6 +173,22 @@ public class TerrainEditor : MonoBehaviour
 
     // -------------------------------- TEXTURE FUNCTIONALITY ------------------------------------------------------------------------------
 
+    public void SetSplatHeights(SplatHeights[] splatHeightsData)
+    {
+
+        splatHeights = splatHeightsData;
+    }
+
+    public List<string> getTextureNames()
+    {
+        List<string> textureNames = new List<string>();
+        foreach (TerrainTexture texture in terrainTextures)
+        {
+            textureNames.Add(texture.name);
+        }
+
+        return textureNames;
+    }
 
     /// <summary>
     /// Call to automatically texture the entire map. Texturing is done based on the terrain height.
@@ -191,7 +208,7 @@ public class TerrainEditor : MonoBehaviour
                 
                 for (int i = 0; i < splatHeights.Length; i++)
                 {
-                    tempTextureIndex = Random.Range(terrainTextures[i].beginIndex,terrainTextures[i].endIndex);
+                    tempTextureIndex = Random.Range(terrainTextures[splatHeights[i].textureIndex].beginIndex,terrainTextures[splatHeights[i].textureIndex].endIndex);
                     if(i == splatHeights.Length-1)
                     {
                         if(terrainHeight >= splatHeights[i].startingHeight/10)
@@ -487,7 +504,7 @@ public class TerrainEditor : MonoBehaviour
     /// Each texture should be stored in its own folder.   
     /// Textures can consist of 1 or more variants (in .png format).
     /// </summary>
-    private void loadTerrainTextures()
+    public void loadTerrainTextures()
     {
         int uniqueTextures = 0;
         
@@ -544,6 +561,11 @@ public class TerrainEditor : MonoBehaviour
             }
             uniqueTextures +=1;
         }
+    }
+
+    public int getNumOfUniqueTextures()
+    {
+        return terrainTextures.Length;
     }
 
     // --------------------------------------------- LOAD AND SAVE FROM FILE END ---------------------------------------------------------------------------------
