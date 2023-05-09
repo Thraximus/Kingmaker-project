@@ -10,6 +10,8 @@ public class TerrainEditor : MonoBehaviour
         public float startingHeight;
     };
     [SerializeField] private Terrain terrain;
+    [SerializeField] private Material riverMaterial;
+    [SerializeField] private Material oceanMaterial;
     [SerializeField] private ComputeShader brushDropoffShader;
      public float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
     [SerializeField] public string mapNameForLoadSave;             // Name under which the map will be saved                           TODO: unserialize
@@ -80,6 +82,7 @@ public class TerrainEditor : MonoBehaviour
         
         this.terrain.terrainData.SetHeights(0,0,mesh);
         LoadBrushFromPngAndCalculateBrushPixels(true,selectedBrush);                                                // TODO: Runtime brush picker
+
     }
 
     private float[,] returnCopyOfMesh(float[,] originalMesh)
@@ -168,6 +171,11 @@ public class TerrainEditor : MonoBehaviour
         if(Input.GetKeyUp(KeyCode.T))
         {
             AutoTextureTerrain();
+        }
+
+        if(Input.GetKeyUp(KeyCode.R))                                // Temporary save key
+        {
+            GenerateWater();        // TODO place this function on GUI object
         }
     }
 
@@ -669,6 +677,131 @@ public class TerrainEditor : MonoBehaviour
      result.Apply();
      brushForManipulation = result;
     }
+
+    // -------------------------------------------------- MANIPULATION AND CALCULATIONS END -------------------------------------------------------------------------------
+
+    // ----------------------------------------------------------------- WATER --------------------------------------------------------------------------------------------
+
+
+    /// <summary>
+    /// Creates a 2 triangle quad plane with the water material 
+    /// </summary>
+    /// <param name="locationX">The location on the X axis</param>
+    /// <param name="locationY">The location on the Y axis (Height)</param>
+    /// <param name="locationZ">The location on the Z axis</param>
+    /// <param name="width">Width of the plane(X)</param>
+    /// <param name="height">Height of the plane (Z)</param>
+    /// <param name="useColider">Flag that determines if the water has a colider</param>
+    /// <param name="isRiver">Flag to determine if the water is a river or ocean</param>
+    public GameObject createWaterPlane(float locationX, float locationY, float locationZ,float width, float height, bool useColider, bool isRiver)
+    {
+        locationX = locationX - width/2f ;
+        locationY = -0.8f;
+        locationZ = locationZ - height/2f ;
+
+        GameObject plain = new GameObject("NAME"); //TODO CHANGE NAME TO DYNAMIC
+        MeshFilter mf = plain.AddComponent(typeof(MeshFilter)) as MeshFilter;
+        MeshRenderer mr = plain.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
+
+        Mesh plainMesh = new Mesh();
+        plainMesh.vertices = new Vector3[]
+        {
+            
+            new Vector3(locationX,locationY+0.5f,locationZ),
+            new Vector3(width+locationX,locationY+0.5f,locationZ),
+            new Vector3(width+locationX,locationY+0.5f,height+locationZ),
+            new Vector3(locationX,locationY+0.5f,height+locationZ)
+        };
+
+        plainMesh.uv = new Vector2[]
+        {
+            new Vector2(1,0),
+            new Vector2(1,1),
+            new Vector2(0,1),
+            new Vector2(0,0)
+        };
+
+        plainMesh.triangles = new int[]{2,1,0,3,2,0};
+
+        mf.mesh = plainMesh;
+        if(useColider == true)
+        {
+            (plain.AddComponent(typeof(MeshCollider)) as MeshCollider).sharedMesh = plainMesh;
+        }
+        
+        if(isRiver)
+        {
+            mr.material = riverMaterial;
+            mr.material.SetFloat("_WaveSpeed",0); // TODO REMOVE , Temporary while rivers dont have a custom material
+        }
+        else
+        {
+            mr.material = oceanMaterial;
+        }
+        plainMesh.RecalculateNormals();
+        plainMesh.RecalculateBounds();
+
+        return plain;
+    }
+
+    /// <summary>
+    /// Combines multiple game objects into one (efectively creates a new meged mesh into a new object and deletes the existing objects)
+    /// </summary>
+    /// <param name="mergeObjects">List of all the objects whose meshes need to be merged</param>
+    private void combineMeshes(MeshFilter[] mergeObjects )
+    {
+         CombineInstance[] combine = new CombineInstance[mergeObjects.Length];
+
+        int i = 0;
+        while (i < mergeObjects.Length)
+        {
+            combine[i].mesh = mergeObjects[i].sharedMesh;
+            combine[i].transform = mergeObjects[i].transform.localToWorldMatrix;
+            mergeObjects[i].gameObject.SetActive(false);
+
+            i++;
+        }
+       
+        Mesh mesh = new Mesh();
+        mesh.CombineMeshes(combine);
+        GameObject combinedMesh = new GameObject("CombinedWater"); // TODO make the name dynamic
+        MeshFilter mf = combinedMesh.AddComponent(typeof(MeshFilter)) as MeshFilter;
+        MeshRenderer mr = combinedMesh.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
+        mr.material = mergeObjects[0].GetComponent<MeshRenderer>().material;
+
+        combinedMesh.GetComponent<MeshFilter>().sharedMesh = mesh;
+        combinedMesh.gameObject.SetActive(true);
+
+        for(int j =0;j<mergeObjects.Length;j++)
+        {
+            Destroy(mergeObjects[j].gameObject);
+        }
+    }
+
+     private void GenerateWater() //TODO in dev
+    {
+        ray = Camera.main.ScreenPointToRay (Input.mousePosition);
+        if (Physics.Raycast (ray, out hit)) 
+        {
+            float mouseX = hit.point.x;
+            float mouseY = hit.point.y;
+            float mouseZ = hit.point.z;
+
+            Debug.Log("x"+mouseX);
+            Debug.Log("y"+mouseY);
+            Debug.Log("z"+mouseZ);
+
+            GameObject plane1 = createWaterPlane(mouseX,mouseY,mouseZ,10,10,true,true);
+            GameObject plane2 = createWaterPlane(mouseX+10,mouseY,mouseZ,10,10,true,true);
+            GameObject plane3 = createWaterPlane(mouseX+10,mouseY,mouseZ+10,10,10,true,true);
+
+            MeshFilter[] meshes = new MeshFilter[]{plane1.GetComponent<MeshFilter>(),plane2.GetComponent<MeshFilter>(),plane3.GetComponent<MeshFilter>()};
+
+            combineMeshes(meshes);
+        }
+
+    }
+
+    // --------------------------------------------------------------- WATER END-------------------------------------------------------------------------------------------
 }
 
-// -------------------------------------------------- MANIPULATION AND CALCULATIONS END -------------------------------------------------------------------------------
