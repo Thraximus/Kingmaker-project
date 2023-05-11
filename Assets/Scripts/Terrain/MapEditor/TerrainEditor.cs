@@ -788,9 +788,9 @@ public class TerrainEditor : MonoBehaviour
             float mouseY = hit.point.y;
             float mouseZ = hit.point.z;
 
-            Debug.Log("x"+mouseX);
-            Debug.Log("y"+mouseY);
-            Debug.Log("z"+mouseZ);
+            // Debug.Log("x"+mouseX);
+            // Debug.Log("y"+mouseY);
+            // Debug.Log("z"+mouseZ);
 
 
             GameObject plane1 = createWaterPlane(mouseX,mouseZ,mouseY,1,1,true,true);
@@ -808,26 +808,29 @@ public class TerrainEditor : MonoBehaviour
 
             if(Physics.Raycast(plane1.transform.position, Vector3.left, out distanceRay))
             {
-                Debug.Log("Left distance between points: "+ Vector3.Distance(plane1.transform.position,distanceRay.point));
+                Debug.Log("Left distance between points: "+ Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point)));
                 distanceToLeft = Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point));                
             };
 
             if(Physics.Raycast(plane1.transform.position, Vector3.right, out distanceRay))
             {
-                Debug.Log("Right distance between points: "+ Vector3.Distance(plane1.transform.position,distanceRay.point));
+                Debug.Log("Right distance between points: "+ Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point)));
                 distanceToRight = Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point));
             };
 
 
             MeshFilter[] meshes = new MeshFilter[distanceToLeft+distanceToRight+1];
-            meshes[distanceToLeft+distanceToRight] = plane1.GetComponent<MeshFilter>(); // TODO temporary remove later
+            Debug.Log("total distance: "+ (distanceToLeft+distanceToRight));
+            meshes[0] = plane1.GetComponent<MeshFilter>(); // TODO temporary remove later
             for (int i = 1; i< distanceToLeft+1;i++)
             {
-                meshes[i-1] = createWaterPlane(mouseX-(i),mouseZ,mouseY,1,1,true,true).GetComponent<MeshFilter>();
+                Debug.Log("left side: "+i);
+                meshes[i] = createWaterPlane(mouseX-(i),mouseZ,mouseY,1,1,true,true).GetComponent<MeshFilter>();
             }
-            for (int i = distanceToLeft; i< distanceToRight+distanceToLeft+1;i++)
+            for (int i = distanceToLeft; i< distanceToRight+distanceToLeft;i++)
             {
-                meshes[i-1] = createWaterPlane(mouseX+(i-distanceToLeft),mouseZ,mouseY,1,1,true,true).GetComponent<MeshFilter>();
+                Debug.Log("right side: "+i);
+                meshes[i+1] = createWaterPlane(mouseX+(i-distanceToLeft),mouseZ,mouseY,1,1,true,true).GetComponent<MeshFilter>();
             }
 
             GameObject combinedWater = combineMeshes(meshes);
