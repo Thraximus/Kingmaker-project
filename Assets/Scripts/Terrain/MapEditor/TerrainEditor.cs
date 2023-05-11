@@ -18,7 +18,7 @@ public class TerrainEditor : MonoBehaviour
     [SerializeField] private  Texture2D heightmapSaveLoadBuffer;    // Memory buffer used to store the map to be loaded or to be saved  TODO: unserialize
     [SerializeField] private Texture2D originalBrush;               // Original brush loaded from file                                  TODO: unserialize
     [SerializeField] private Texture2D brushForManipulation;        // Brush stored in memory, and manipulated(scaled)                  TODO: unserialize
-    [HideInInspector] public float brushStrength;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?  TODO: unserialize
+    [HideInInspector] public float brushStrength;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?
     [SerializeField] private float brushScaleIncrement = 0.1f;      // Increment in which the brush gets scaled up
     [HideInInspector] public SplatHeights[] splatHeights;
     [HideInInspector] public string selectedBrush = "circleFullBrush" ;
@@ -696,21 +696,21 @@ public class TerrainEditor : MonoBehaviour
     public GameObject createWaterPlane(float locationX, float locationY, float locationZ,float width, float height, bool useColider, bool isRiver)
     {
         locationX = locationX - width/2f ;
-        locationY = -0.8f;
-        locationZ = locationZ - height/2f ;
+        locationY = locationY - height/2f;
+        locationZ = 0.1f ; // TODO CHANGE TO BE VARIABLE
 
         GameObject plain = new GameObject("NAME"); //TODO CHANGE NAME TO DYNAMIC
+        plain.transform.position = new Vector3(locationX,locationZ,locationY);
         MeshFilter mf = plain.AddComponent(typeof(MeshFilter)) as MeshFilter;
         MeshRenderer mr = plain.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
 
         Mesh plainMesh = new Mesh();
         plainMesh.vertices = new Vector3[]
         {
-            
-            new Vector3(locationX,locationY+0.5f,locationZ),
-            new Vector3(width+locationX,locationY+0.5f,locationZ),
-            new Vector3(width+locationX,locationY+0.5f,height+locationZ),
-            new Vector3(locationX,locationY+0.5f,height+locationZ)
+            new Vector3(0,0,0),
+            new Vector3(width,0,0),
+            new Vector3(width,0,height),
+            new Vector3(0,0,height)
         };
 
         plainMesh.uv = new Vector2[]
@@ -748,7 +748,7 @@ public class TerrainEditor : MonoBehaviour
     /// Combines multiple game objects into one (efectively creates a new meged mesh into a new object and deletes the existing objects)
     /// </summary>
     /// <param name="mergeObjects">List of all the objects whose meshes need to be merged</param>
-    private void combineMeshes(MeshFilter[] mergeObjects )
+    private GameObject combineMeshes(MeshFilter[] mergeObjects )
     {
          CombineInstance[] combine = new CombineInstance[mergeObjects.Length];
 
@@ -776,6 +776,7 @@ public class TerrainEditor : MonoBehaviour
         {
             Destroy(mergeObjects[j].gameObject);
         }
+        return combinedMesh;
     }
 
      private void GenerateWater() //TODO in dev
@@ -791,13 +792,45 @@ public class TerrainEditor : MonoBehaviour
             Debug.Log("y"+mouseY);
             Debug.Log("z"+mouseZ);
 
-            GameObject plane1 = createWaterPlane(mouseX,mouseY,mouseZ,10,10,true,true);
-            GameObject plane2 = createWaterPlane(mouseX+10,mouseY,mouseZ,10,10,true,true);
-            GameObject plane3 = createWaterPlane(mouseX+10,mouseY,mouseZ+10,10,10,true,true);
 
-            MeshFilter[] meshes = new MeshFilter[]{plane1.GetComponent<MeshFilter>(),plane2.GetComponent<MeshFilter>(),plane3.GetComponent<MeshFilter>()};
+            GameObject plane1 = createWaterPlane(mouseX,mouseZ,mouseY,1,1,true,true);
+            // GameObject plane2 = createWaterPlane(mouseX+1,mouseY,mouseZ,1,1,true,true);
+            // GameObject plane3 = createWaterPlane(mouseX+1,mouseY,mouseZ+1,1,1,true,true);
 
-            combineMeshes(meshes);
+            // MeshFilter[] meshes = new MeshFilter[]{plane1.GetComponent<MeshFilter>(),plane2.GetComponent<MeshFilter>(),plane3.GetComponent<MeshFilter>()};
+
+            // GameObject combinedWater = combineMeshes(meshes);
+
+
+            RaycastHit distanceRay;
+            int distanceToLeft = 0;
+            int distanceToRight = 0;
+
+            if(Physics.Raycast(plane1.transform.position, Vector3.left, out distanceRay))
+            {
+                Debug.Log("Left distance between points: "+ Vector3.Distance(plane1.transform.position,distanceRay.point));
+                distanceToLeft = Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point));                
+            };
+
+            if(Physics.Raycast(plane1.transform.position, Vector3.right, out distanceRay))
+            {
+                Debug.Log("Right distance between points: "+ Vector3.Distance(plane1.transform.position,distanceRay.point));
+                distanceToRight = Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point));
+            };
+
+
+            MeshFilter[] meshes = new MeshFilter[distanceToLeft+distanceToRight+1];
+            meshes[distanceToLeft+distanceToRight] = plane1.GetComponent<MeshFilter>(); // TODO temporary remove later
+            for (int i = 1; i< distanceToLeft+1;i++)
+            {
+                meshes[i-1] = createWaterPlane(mouseX-(i),mouseZ,mouseY,1,1,true,true).GetComponent<MeshFilter>();
+            }
+            for (int i = distanceToLeft; i< distanceToRight+distanceToLeft+1;i++)
+            {
+                meshes[i-1] = createWaterPlane(mouseX+(i-distanceToLeft),mouseZ,mouseY,1,1,true,true).GetComponent<MeshFilter>();
+            }
+
+            GameObject combinedWater = combineMeshes(meshes);
         }
 
     }
