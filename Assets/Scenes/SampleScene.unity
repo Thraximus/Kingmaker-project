@@ -848,6 +848,7 @@ MonoBehaviour:
   riverMaterial: {fileID: 2100000, guid: 324e8320a5aab1d48af1c29596a6e940, type: 2}
   oceanMaterial: {fileID: 2100000, guid: 324e8320a5aab1d48af1c29596a6e940, type: 2}
   brushDropoffShader: {fileID: 7200000, guid: 666c63621b1a9f74b95fd803dddf74fa, type: 3}
+  waterWaypointObject: {fileID: 5611346359509464735, guid: f1a585194500efa4cbab076ed9715792, type: 3}
   brushSize: 20
   mapNameForLoadSave: 
   heightmapSaveLoadBuffer: {fileID: 0}
@@ -866,6 +867,7 @@ MonoBehaviour:
     startingHeight: 90
   selectedBrush: circleFullBrush
   terrainManipulationEnabled: 1
+  waterCreationEnabled: 1
   brushEffect: SmoothManipultionTool
   realBrushStrength: 0
 --- !u!154 &1653783122
