@@ -35,6 +35,7 @@ public class TerrainEditor : MonoBehaviour
         public GameObject currentWaypoint;
         public WaterWaypoint nextWaypoint;
         public Vector3 lookVector;
+        public Vector3 yLockedLookVector;
 
         public WaterWaypoint(WaterWaypoint inputPreviousWaypoint, GameObject inputCurrentWaypoint, WaterWaypoint inputNextWaypoint)
         {
@@ -45,6 +46,7 @@ public class TerrainEditor : MonoBehaviour
     }
     private float WaterWaypointHeight=-2f;
 
+    private float waterPrecision = 0.4f;
     struct WaterGrid
     {
         public WaterSquare[][] squareMatrix;
@@ -55,17 +57,17 @@ public class TerrainEditor : MonoBehaviour
     struct WaterSquare
     {
         public Vector3 position;
-        public Vector3 edgeDownLeft;
-        public Vector3 edgeDownRight;
-        public Vector3 edgeUpLeft;
-        public Vector3 edgeUpRight;
+        public Vertice edgeDownLeft;
+        public Vertice edgeDownRight;
+        public Vertice edgeUpLeft;
+        public Vertice edgeUpRight;
         public bool renderMesh;
         public Vector2 gridId;
     }
     struct Vertice
     {
-        Vector3 position;
-        bool isCalculated;
+        public Vector3 position;
+        public bool isCalculated;
     }
     private WaterWaypoint pastWaterWaypoint = null;
     private WaterWaypoint currentWaterWaypoint = null;
@@ -240,27 +242,16 @@ public class TerrainEditor : MonoBehaviour
                 {
                     if(startWaypoint.previousWaypoint == null)
                     {
-                        WaterGrid waterGrid = generateVerticeArray(startWaypoint); 
-                        // GenerateWaterOnGrid(waterGrid);
-                        populateWaterGrid(waterGrid,0.5f);
+                        WaterGrid waterGrid = generateVerticeArray(startWaypoint,waterPrecision);
+                        populateWaterGrid(ref waterGrid,0.05f);
+                        calculateWaterGridHeights(ref waterGrid);
                         GenerateWaterFromWaterGrid(waterGrid);
-                        // Debug.Log("Matrix X: "+waterGrid.squareMatrix.Length);
-                        // Debug.Log("Matrix Y: "+waterGrid.squareMatrix[0].Length);
-                        // Debug.Log("Starting grid position x : "+waterGrid.squareMatrix[0][0].position.x);
-                        // Debug.Log("Starting grid position z : "+waterGrid.squareMatrix[0][0].position.z);
-
-                        // Debug.Log("Starting square position x : "+waterGrid.startSquare.position.x);
-                        // Debug.Log("Starting square position z : "+waterGrid.startSquare.position.z);
-                        // Debug.Log("Starting square edgeDownLeft : "+waterGrid.startSquare.edgeDownLeft);
-                        // Debug.Log("Starting square edgeDownRight : "+waterGrid.startSquare.edgeDownRight);
-                        // Debug.Log("Starting square edgeUpLeft : "+waterGrid.startSquare.edgeUpLeft);
-                        // Debug.Log("Starting square edgeUpRight : "+waterGrid.startSquare.edgeUpRight);
-                        // Debug.Log("Starting square renderMesh : "+waterGrid.startSquare.renderMesh);
-
                     }
                 }
+                // ClearWaypoints();
             }
         }
+        
         if(Input.GetMouseButtonUp(0) && placeWaterWaypointEnabeled && Input.mousePosition.x < Screen.width - (Screen.width/100*22) )
         {
             Debug.Log("click");
@@ -275,6 +266,9 @@ public class TerrainEditor : MonoBehaviour
                 Quaternion newRotation = Quaternion.LookRotation(lookPos);
                 pastWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
                 currentWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
+
+                currentWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.y);
+                pastWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.y);
                 currentWaterWaypoint.lookVector = lookPos;
                 pastWaterWaypoint.lookVector = lookPos;
 
@@ -871,7 +865,7 @@ public class TerrainEditor : MonoBehaviour
         // locationX = locationX - width/2f ;
         // locationY = locationY - height/2f;
         // locationZ = 0.1f ; // TODO CHANGE TO BE VARIABLE
-        Debug.Log(" Location X: "+ locationX+" location Z : "+ locationZ+" location Y: "+ locationY+" cornerHeightArray[0]: "+ cornerHeightArray[0]+" cornerHeightArray[1]: "+ cornerHeightArray[1]+" cornerHeightArray[2]: "+ cornerHeightArray[2]+" cornerHeightArray[3]: "+ cornerHeightArray[3]);
+        // Debug.Log(" Location X: "+ locationX+" location Z : "+ locationZ+" location Y: "+ locationY+" cornerHeightArray[0]: "+ cornerHeightArray[0]+" cornerHeightArray[1]: "+ cornerHeightArray[1]+" cornerHeightArray[2]: "+ cornerHeightArray[2]+" cornerHeightArray[3]: "+ cornerHeightArray[3]);
 
 
         GameObject plain = new GameObject("NAME"); //TODO CHANGE NAME TO DYNAMIC
@@ -908,15 +902,15 @@ public class TerrainEditor : MonoBehaviour
             (plain.AddComponent(typeof(MeshCollider)) as MeshCollider).sharedMesh = plainMesh;
         }
         
-        // if(isRiver)
-        // {
-        //     mr.material = riverMaterial;
-        //     mr.material.SetFloat("_WaveSpeed",0); // TODO REMOVE , Temporary while rivers dont have a custom material
-        // }
-        // else
-        // {
-        //     mr.material = oceanMaterial;
-        // }
+        if(isRiver)
+        {
+            mr.material = riverMaterial;
+            mr.material.SetFloat("_WaveSpeed",0); // TODO REMOVE , Temporary while rivers dont have a custom material
+        }
+        else
+        {
+            mr.material = oceanMaterial;
+        }
         plainMesh.RecalculateNormals();
         plainMesh.RecalculateBounds();
 
@@ -1012,79 +1006,9 @@ public class TerrainEditor : MonoBehaviour
         }
         return combinedMesh;
     }
-
- [System.Obsolete("This is an obsolete method")]
-     private void GenerateWater(float chunkSize)
-    {
-        if(waypointsForGeneration.Count > 0)
-        {
-            foreach(WaterWaypoint startWaypoint in waypointsForGeneration)
-            {
-                if(startWaypoint.previousWaypoint == null)
-                {
-                    List<GameObject> meshes = new List<GameObject>();
-                    WaterWaypoint currentWaypoint = startWaypoint;
-                    while(currentWaypoint.nextWaypoint != null)
-                    {
-                        float distanceBetweenWaypoints = Mathf.Ceil(Vector3.Distance(currentWaypoint.currentWaypoint.transform.position,currentWaypoint.nextWaypoint.currentWaypoint.transform.position));
-                        Debug.Log("Distance betweenWaypoints: "+distanceBetweenWaypoints);
-
-                        for(float j = 0; j< distanceBetweenWaypoints;j+=chunkSize)
-                        {
-                            GameObject plane1 = createWaterPlane(currentWaypoint.currentWaypoint.transform.position.x+j*(currentWaypoint.lookVector.normalized.x),currentWaypoint.currentWaypoint.transform.position.z+j*(currentWaypoint.lookVector.normalized.z),currentWaypoint.currentWaypoint.transform.position.y+j*(currentWaypoint.lookVector.normalized.y),chunkSize,chunkSize,true,true);
-                            plane1.transform.rotation = Quaternion.LookRotation(currentWaypoint.lookVector);
-
-                            Debug.Log("Start location: "+currentWaypoint.currentWaypoint.transform.position);
-                            Debug.Log("First block location: "+ plane1.transform.position);
-
-                            RaycastHit distanceRay;
-                            int distanceToLeft = 0;
-                            int distanceToRight = 0;
-
-                            if(Physics.Raycast(plane1.transform.position, Quaternion.AngleAxis(-90, Vector3.up) * currentWaypoint.lookVector , out distanceRay))
-                            {
-                                Debug.Log("Left distance between points: "+ Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point)));
-                                distanceToLeft = Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point));                
-                            };
-
-                            if(Physics.Raycast(plane1.transform.position, Quaternion.AngleAxis(90, Vector3.up) * currentWaypoint.lookVector, out distanceRay))
-                            {
-                                Debug.Log("Right distance between points: "+ Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point)));
-                                distanceToRight = Mathf.CeilToInt(Vector3.Distance(plane1.transform.position,distanceRay.point));
-                            };
-
-
-                            
-                            Debug.Log("total distance: "+ (distanceToLeft+distanceToRight));
-                            meshes.Add(plane1);
-                            for (float i = chunkSize; i< distanceToLeft+1;i+=chunkSize)
-                            {
-                                
-                                var lookVectorRotatedLeft = Quaternion.AngleAxis(-90, Vector3.up) * currentWaypoint.lookVector;
-                                
-                                var plane = createWaterPlane(plane1.transform.position.x+(i*(lookVectorRotatedLeft.normalized.x)),plane1.transform.position.z+(i*(lookVectorRotatedLeft.normalized.z)),plane1.transform.position.y,chunkSize,chunkSize,true,true);
-                                plane.transform.rotation = Quaternion.LookRotation(currentWaypoint.lookVector);
-                                meshes.Add(plane);
-                            }
-                            for (float i = distanceToLeft+chunkSize; i< distanceToRight+distanceToLeft+chunkSize;i+=chunkSize)
-                            {
-                                var lookVectorRotatedRight = Quaternion.AngleAxis(90, Vector3.up) * currentWaypoint.lookVector;
-
-                                var plane = createWaterPlane(plane1.transform.position.x+((i-distanceToLeft)*lookVectorRotatedRight.normalized.x),plane1.transform.position.z+((i-distanceToLeft)*lookVectorRotatedRight.normalized.z),plane1.transform.position.y,chunkSize,chunkSize,true,true);
-                                plane.transform.rotation = Quaternion.LookRotation(currentWaypoint.lookVector);
-                                meshes.Add(plane);
-                            }
-                        }
-                        currentWaypoint = currentWaypoint.nextWaypoint;
-                    }
-                    GameObject combinedWater = combineMeshes(meshes);         
-                }
-            }
-        }
-    }
     
 
-    private void populateWaterGrid(WaterGrid gridForGeneration, float precision)
+    private void populateWaterGrid(ref WaterGrid gridForGeneration, float precision)
     {
         WaterWaypoint waypointForEvaluation = gridForGeneration.startingWaypoint;
         while(waypointForEvaluation.nextWaypoint != null)
@@ -1111,41 +1035,16 @@ public class TerrainEditor : MonoBehaviour
                 // Vector3 startingWaypointSquarePos = new Vector3(Mathf.Round(posX-gridForGeneration.originPosition.x),0,Mathf.Round(posZ-gridForGeneration.originPosition.z));
                 int squareIdX = Mathf.RoundToInt(posX-gridForGeneration.originPosition.x);
                 int squareIdZ = Mathf.RoundToInt(posZ-gridForGeneration.originPosition.z);
-                // Debug.Log("Processing square X: "+(squareIdX));
-                // Debug.Log("Processing square Y: "+ (squareIdZ));
 
-                if(gridForGeneration.squareMatrix[squareIdX][squareIdZ].renderMesh == false)
-                {
-                    gridForGeneration.squareMatrix[squareIdX][squareIdZ].renderMesh = true;
-                    gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownLeft.y = posY;
-                    gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownRight.y = posY;
-                    gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpLeft.y = posY;
-                    gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpRight.y = posY;
-                    gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.y = posY;
-                    for (int x = -1; x<2; x++)
-                    {
-                        for (int z = -1; z<2; z++)
-                        {
-                            if( squareIdX+x >-1 && squareIdZ+z >-1 && squareIdX+x < gridForGeneration.squareMatrix.Length && squareIdZ+z < gridForGeneration.squareMatrix[0].Length)
-                            {
-                                if(( gridForGeneration.squareMatrix[squareIdX+x][squareIdZ+z].renderMesh == true) && !(x == 0 && z == 0) )
-                                {
-                                    // float[][] averagedHeights = averageEdgeHeight(gridForGeneration.squareMatrix[squareIdX][squareIdZ],gridForGeneration.squareMatrix[squareIdX+x][squareIdZ+z],x,z);
-                                    // gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownLeft.y = averagedHeights[0][0];
-                                    // gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownRight.y = averagedHeights[0][1];
-                                    // gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpRight.y = averagedHeights[0][2];
-                                    // gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpLeft.y = averagedHeights[0][3];
-
-                                    // gridForGeneration.squareMatrix[squareIdX+x][squareIdZ+z].edgeDownLeft.y = averagedHeights[1][0];
-                                    // gridForGeneration.squareMatrix[squareIdX+x][squareIdZ+z].edgeDownRight.y = averagedHeights[1][1];
-                                    // gridForGeneration.squareMatrix[squareIdX+x][squareIdZ+z].edgeUpRight.y = averagedHeights[1][2];
-                                    // gridForGeneration.squareMatrix[squareIdX+x][squareIdZ+z].edgeUpLeft.y = averagedHeights[1][3];
-                                }
-
-                            }
-                        }
-                    }
-                }
+                // if(gridForGeneration.squareMatrix[squareIdX][squareIdZ].renderMesh == false)
+                // {
+                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].renderMesh = true;
+                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownLeft.position.y = posY;
+                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownRight.position.y = posY;
+                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpLeft.position.y = posY;
+                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpRight.position.y = posY;
+                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.y = posY;
+                // }
 
                 RaycastHit distanceRay;
                 int distanceToLeft = 0;
@@ -1153,25 +1052,29 @@ public class TerrainEditor : MonoBehaviour
                 Vector3 traceOrigin = new Vector3(posX,posY,posZ);
                 Vector3 rightLookVector;
                 Vector3 leftLookVector;
+                
 
-                if(Physics.Raycast(traceOrigin, Quaternion.AngleAxis(-90, Vector3.up) * waypointForEvaluation.lookVector , out distanceRay))
+                if(Physics.Raycast(traceOrigin, Quaternion.AngleAxis(-90, Vector3.up) * waypointForEvaluation.yLockedLookVector , out distanceRay,6f))
                 {
                     // Debug.Log("Left distance between points: "+ Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point)));
                     distanceToLeft = Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point));     
                     leftLookVector = distanceRay.point - traceOrigin;
                 };
 
-                if(Physics.Raycast(traceOrigin, Quaternion.AngleAxis(90, Vector3.up) * waypointForEvaluation.lookVector, out distanceRay))
+                if(Physics.Raycast(traceOrigin, Quaternion.AngleAxis(90, Vector3.up) * waypointForEvaluation.yLockedLookVector, out distanceRay,6f))
                 {
                     // Debug.Log("Right distance between points: "+ Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point)));
                     distanceToRight = Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point));
                     rightLookVector = distanceRay.point - traceOrigin;
-                };
 
-                for (float i = precision; i< distanceToLeft+1;i+=precision)
+                    Debug.Log("right point: "+distanceRay.point);
+                };
+                Debug.Log("Processing square X: "+(gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.x)+" Y: "+ (gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.z)+" "+ distanceToLeft+" "+distanceToRight);
+
+                for (float i = precision; i< distanceToLeft;i+=precision)
                 {
+                    var lookVectorRotatedLeft = Quaternion.AngleAxis(-90, Vector3.up) * waypointForEvaluation.yLockedLookVector;
                     
-                    var lookVectorRotatedLeft = Quaternion.AngleAxis(-90, Vector3.up) * waypointForEvaluation.lookVector;
                     float subPosX = posX+i*(lookVectorRotatedLeft.normalized.x);
                     float subPosY = posY+i*(lookVectorRotatedLeft.normalized.y);
                     float subPosZ = posZ+i*(lookVectorRotatedLeft.normalized.z);
@@ -1182,43 +1085,21 @@ public class TerrainEditor : MonoBehaviour
                     if(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh == false)
                     {
                         gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh = true;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.position.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.position.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.position.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.position.y = posY;
                         gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].position.y = posY;
-                        Debug.Log("Fucked pos Y: "+ posY);
-                        for (int x = -1; x<2; x++)
-                        {
-                            for (int z = -1; z<2; z++)
-                            {
-
-                                if( subSquareIdX+x >-1 && subSquareIdZ+z >-1 && subSquareIdX+x < gridForGeneration.squareMatrix.Length && subSquareIdZ+z < gridForGeneration.squareMatrix[0].Length)
-                                {
-                                    if((gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].renderMesh == true) && !(x == 0 && z == 0))
-                                    {    
-
-                                        // float[][] averagedHeights = averageEdgeHeight(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ],gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z],x,z);
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.y = averagedHeights[0][0];
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.y = averagedHeights[0][1];
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.y = averagedHeights[0][2];
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.y = averagedHeights[0][3];
-
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeDownLeft.y = averagedHeights[1][0];
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeDownRight.y = averagedHeights[1][1];
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeUpRight.y = averagedHeights[1][2];
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeUpLeft.y = averagedHeights[1][3];
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
-
-                for (float i = precision; i< distanceToRight+1;i+=precision)
+            
+                for (float i = precision; i< distanceToRight;i+=precision)
                 {
 
-                    var lookVectorRotatedRight = Quaternion.AngleAxis(90, Vector3.up)*waypointForEvaluation.lookVector;
+                    var lookVectorRotatedRight = Quaternion.AngleAxis(90, Vector3.up)*waypointForEvaluation.yLockedLookVector;
+
+
+
                     float subPosX = posX+i*(lookVectorRotatedRight.normalized.x);
                     float subPosY = posY+i*(lookVectorRotatedRight.normalized.y);
                     float subPosZ = posZ+i*(lookVectorRotatedRight.normalized.z);
@@ -1230,56 +1111,221 @@ public class TerrainEditor : MonoBehaviour
                     if(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh == false)
                     {
                         gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh = true;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.position.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.position.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.position.y = posY;
+                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.position.y = posY;
                         gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].position.y = posY;
-                        for (int x = -1; x<2; x++)
-                        {
-                            Debug.Log("X position: "+ (gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ].position.x) + " Z position: "+ (gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ].position.z+" x offset : "+ x));
-                            for (int z = -1; z<2; z++)
-                            {
-                                // Debug.Log("X position: "+ (gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].position.x) + " Z position: "+ (gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].position.z+" x offset : "+ x+ " z offset: "+z));
-                                if( subSquareIdX+x >-1 && subSquareIdZ+z >-1 && subSquareIdX+x < gridForGeneration.squareMatrix.Length && subSquareIdZ+z < gridForGeneration.squareMatrix[0].Length)
-                                {
-                                    if((gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].renderMesh == true) && !(x ==0 && z == 0))
-                                    {
-                                        // float[][] averagedHeights = averageEdgeHeight(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ],gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z],x,z);
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.y = averagedHeights[0][0];
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.y = averagedHeights[0][1];
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.y = averagedHeights[0][2];
-                                        // gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.y = averagedHeights[0][3];
 
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeDownLeft.y = averagedHeights[1][0];
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeDownRight.y = averagedHeights[1][1];
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeUpRight.y = averagedHeights[1][2];
-                                        // gridForGeneration.squareMatrix[subSquareIdX+x][subSquareIdZ+z].edgeUpLeft.y = averagedHeights[1][3];
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
+                
             }
-            
-
-
             waypointForEvaluation = waypointForEvaluation.nextWaypoint;
         }
 
+    }
+
+    private void calculateWaterGridHeights(ref WaterGrid gridForGeneration)
+    {
+        int vertexCount;
+        WaterSquare[] squaresForProcessing;
+        float vertexHeightValue;
+        bool[] squareActiveStatus;
         for(int i=0; i<gridForGeneration.squareMatrix.Length;i++)
         {
             for(int j=0; j<gridForGeneration.squareMatrix[0].Length;j++)
             {
                 if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
                 {
+                    if(gridForGeneration.squareMatrix[i][j].edgeUpRight.isCalculated == false)
+                    {
+                        if(gridForGeneration.squareMatrix[i+1][j+1].renderMesh == false)
+                        {
+                            if(!((i+1)>gridForGeneration.squareMatrix.Length) && !((j+1)> gridForGeneration.squareMatrix[0].Length))
+                            {
+                                
 
+                                vertexCount = 3;
+                                squaresForProcessing = new WaterSquare[vertexCount];
+                                squareActiveStatus = new bool[vertexCount];
+                                squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
+                                if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
+                                {
+                                    squareActiveStatus[0] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[0] = false; 
+                                }
+                                squaresForProcessing[1] = gridForGeneration.squareMatrix[i+1][j];
+                                if(gridForGeneration.squareMatrix[i+1][j].renderMesh == true)
+                                {
+                                    squareActiveStatus[1] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[1] = false; 
+                                }
+
+                                squaresForProcessing[2] = gridForGeneration.squareMatrix[i][j+1];
+                                if(gridForGeneration.squareMatrix[i][j+1].renderMesh == true)
+                                {
+                                    squareActiveStatus[2] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[2] = false; 
+                                }
+
+                                vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,true,true);
+
+                                gridForGeneration.squareMatrix[i][j].edgeUpRight.position.y = vertexHeightValue;
+                                gridForGeneration.squareMatrix[i+1][j].edgeUpLeft.position.y = vertexHeightValue;
+                                gridForGeneration.squareMatrix[i][j+1].edgeDownRight.position.y = vertexHeightValue;
+
+
+                                gridForGeneration.squareMatrix[i][j].edgeUpRight.isCalculated = true;
+                                gridForGeneration.squareMatrix[i+1][j].edgeUpLeft.isCalculated = true;
+                                gridForGeneration.squareMatrix[i][j+1].edgeDownRight.isCalculated = true;
+                            }
+                        }
+                    }
+
+                    if(gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated == false)
+                    {                          
+                        if(i-1 < 0)
+                        {   
+                            if(j-1>0)
+                            {
+                                vertexCount = 2;
+                                squareActiveStatus = new bool[vertexCount];
+                                squaresForProcessing = new WaterSquare[vertexCount];
+                                squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
+                                squaresForProcessing[1] = gridForGeneration.squareMatrix[i][j-1];
+
+                                if(gridForGeneration.squareMatrix[i][j].renderMesh)
+                                {
+                                    squareActiveStatus[0] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[0] = false; 
+                                }
+                                if(gridForGeneration.squareMatrix[i][j-1].renderMesh)
+                                {
+                                    squareActiveStatus[1] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[1] = false; 
+                                }
+
+                                vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,true,false);
+
+                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y = vertexHeightValue;
+                                gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.position.y = vertexHeightValue;
+
+                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated = true;
+                                gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.isCalculated = true;
+                            }
+                        }
+                        else if(j-1 <0)
+                        {
+                            if(i-1>0)
+                            {
+                                vertexCount = 2;
+                                squaresForProcessing = new WaterSquare[vertexCount];
+                                squareActiveStatus = new bool[vertexCount];
+                                squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
+                                squaresForProcessing[1] = gridForGeneration.squareMatrix[i-1][j];
+
+                                if(gridForGeneration.squareMatrix[i][j].renderMesh)
+                                {
+                                    squareActiveStatus[0] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[0] = false; 
+                                }
+                                if(gridForGeneration.squareMatrix[i-1][j].renderMesh)
+                                {
+                                    squareActiveStatus[1] = true; 
+                                }
+                                else
+                                {
+                                    squareActiveStatus[1] = false; 
+                                }
+
+                                vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,false,false);
+
+                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y = vertexHeightValue;
+                                gridForGeneration.squareMatrix[i-1][j].edgeDownRight.position.y = vertexHeightValue;
+
+                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated = true;
+                                gridForGeneration.squareMatrix[i-1][j].edgeDownRight.isCalculated = true;
+                            }
+                        }
+                        else
+                        {
+                            vertexCount = 4;
+                            squaresForProcessing = new WaterSquare[vertexCount];
+                            squareActiveStatus = new bool[vertexCount];
+                            squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
+                            if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
+                            {
+                                squareActiveStatus[0] = true; 
+                            }
+                            else
+                            {
+                                squareActiveStatus[0] = false; 
+                            }
+                            squaresForProcessing[1] = gridForGeneration.squareMatrix[i][j-1];
+                            if(gridForGeneration.squareMatrix[i][j-1].renderMesh == true)
+                            {
+                                squareActiveStatus[1] = true; 
+                            }
+                            else
+                            {
+                                squareActiveStatus[1] = false; 
+                            }
+                            squaresForProcessing[2] = gridForGeneration.squareMatrix[i-1][j-1];
+                            if(gridForGeneration.squareMatrix[i-1][j-1].renderMesh == true)
+                            {
+                                squareActiveStatus[2] = true; 
+                            }
+                            else
+                            {
+                                squareActiveStatus[2] = false; 
+                            }
+                            squaresForProcessing[3] = gridForGeneration.squareMatrix[i-1][j];
+                            if(gridForGeneration.squareMatrix[i-1][j].renderMesh == true)
+                            {
+                                squareActiveStatus[3] = true; 
+                            }
+                            else
+                            {
+                                squareActiveStatus[3] = false; 
+                            }
+
+                            vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,true,false);
+
+                            gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y = vertexHeightValue;
+                            gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.position.y = vertexHeightValue;
+                            gridForGeneration.squareMatrix[i-1][j-1].edgeUpRight.position.y = vertexHeightValue;
+                            gridForGeneration.squareMatrix[i-1][j].edgeDownRight.position.y = vertexHeightValue;
+
+
+                            gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated = true;
+                            gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.isCalculated = true;
+                            gridForGeneration.squareMatrix[i-1][j-1].edgeUpRight.isCalculated = true;
+                            gridForGeneration.squareMatrix[i-1][j].edgeDownRight.isCalculated = true;
+                        }
+                        
+                    }
                 }
             }
         }
-
-
     }
 
     private void GenerateWaterFromWaterGrid(WaterGrid gridForGeneration)
@@ -1291,13 +1337,10 @@ public class TerrainEditor : MonoBehaviour
             {
                 if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
                 {
-                    // meshes.Add(createWaterPlane(gridForGeneration.squareMatrix[i][j].position.x,gridForGeneration.squareMatrix[i][j].position.z,gridForGeneration.squareMatrix[i][j].position.y,1,1,true,true));
-                    float[] heightArray = {gridForGeneration.squareMatrix[i][j].edgeDownLeft.y-gridForGeneration.squareMatrix[i][j].position.y,
-                    gridForGeneration.squareMatrix[i][j].edgeDownRight.y-gridForGeneration.squareMatrix[i][j].position.y,
-                    gridForGeneration.squareMatrix[i][j].edgeUpRight.y-gridForGeneration.squareMatrix[i][j].position.y,
-                    gridForGeneration.squareMatrix[i][j].edgeUpLeft.y-gridForGeneration.squareMatrix[i][j].position.y};
-                    Debug.Log("heightArray rAw edge data for pos X: "+gridForGeneration.squareMatrix[i][j].position.x+" Z: "+gridForGeneration.squareMatrix[i][j].position.z+" : "+ gridForGeneration.squareMatrix[i][j].edgeDownLeft.y + " : "+gridForGeneration.squareMatrix[i][j].edgeDownRight.y + " : "+gridForGeneration.squareMatrix[i][j].edgeUpRight.y + " : "+gridForGeneration.squareMatrix[i][j].edgeUpLeft.y);
-                    Debug.Log("heightArray for pos X: "+gridForGeneration.squareMatrix[i][j].position.x+" Z: "+gridForGeneration.squareMatrix[i][j].position.z+" : "+ heightArray[0] + " : "+heightArray[1] + " : "+heightArray[2] + " : "+heightArray[3]);
+                    float[] heightArray = {gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y-gridForGeneration.squareMatrix[i][j].position.y,
+                    gridForGeneration.squareMatrix[i][j].edgeDownRight.position.y-gridForGeneration.squareMatrix[i][j].position.y,
+                    gridForGeneration.squareMatrix[i][j].edgeUpRight.position.y-gridForGeneration.squareMatrix[i][j].position.y,
+                    gridForGeneration.squareMatrix[i][j].edgeUpLeft.position.y-gridForGeneration.squareMatrix[i][j].position.y};
                     
                     float[] heightArrayDefault = {0,0,0,0};
 
@@ -1308,82 +1351,176 @@ public class TerrainEditor : MonoBehaviour
         GameObject combinedWater = combineMeshes(meshes);
     }
 
+    private float averageEdgeHeightPerVertex( WaterSquare[] squaresForProcessing, bool[] squareActiveStatus, bool vertical, bool topRightStitch)
+    {
+        float finalHeight=0f;
+        int numOfSquares=0;
+        if(topRightStitch == true)
+        {
+            if(squaresForProcessing.Length == 3)
+            {
+                if (squareActiveStatus[0] == true)
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[0].edgeUpRight.position.y;
+                }
+                if (squareActiveStatus[1] == true)
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
+                }
+                if (squareActiveStatus[2] == true )
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[2].edgeDownRight.position.y;
+                }
+                finalHeight = finalHeight/numOfSquares;
+            }
+            else
+            {
+                if(vertical)
+                {
+                    if (squareActiveStatus[0] == true)
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[0].edgeUpRight.position.y;
+                    }
+                    if (squareActiveStatus[1] == true)
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[1].edgeDownRight.position.y;
+                    }
+                    finalHeight = finalHeight/numOfSquares;
+                }
+                else
+                {
+                    if (squareActiveStatus[0] == true)
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[0].edgeUpRight.position.y;
+                    }
+                    if (squareActiveStatus[1] == true)
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
+                    }
+                    finalHeight = finalHeight/numOfSquares;
+                }
+            }
+        }
+        else
+        {
+            if(squaresForProcessing.Length == 4)
+            {
+                if (squareActiveStatus[0] == true)
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[0].edgeDownLeft.position.y;
+                }
+                if (squareActiveStatus[1] == true)
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
+                }
+                if (squareActiveStatus[2] == true )
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[2].edgeUpRight.position.y;
+                }
+                if (squareActiveStatus[3] == true)
+                {
+                    numOfSquares++;
+                    finalHeight += squaresForProcessing[3].edgeDownRight.position.y;
+                }
+                finalHeight = finalHeight/numOfSquares;
+            }
+            else
+            {
+                if(vertical)
+                {
+                    if (squareActiveStatus[0])
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[0].edgeDownLeft.position.y;
+                    }
+                    if (squareActiveStatus[1])
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
+                    }
+                    finalHeight = finalHeight/numOfSquares;
+                }
+                else
+                {
+                    if (squareActiveStatus[0])
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[0].edgeDownLeft.position.y;
+                    }
+                    if (squareActiveStatus[1])
+                    {
+                        numOfSquares++;
+                        finalHeight += squaresForProcessing[1].edgeDownRight.position.y;
+                    }
+                    finalHeight = finalHeight/numOfSquares;
+                }
+            }
+        }
+        
+
+        return finalHeight;
+    }
+
     private float[][] averageEdgeHeight( WaterSquare squareForAverageCentral, WaterSquare squareForAverageOutside, int xOffset, int zOffset)
     {
         float cornerOne = 0f;
         float cornerTwo = 0f;
 
         float[][] returnHeightTotal= new float[2][];
-        // Debug.Log("averageEdgeHeight entered!!!");
-        // Debug.Log("xOffset: " + xOffset);
-        // Debug.Log("zOffset: " + zOffset);
-        
-        Debug.Log("squareForAverageCentral.position.x: " + squareForAverageCentral.position.x);
-        Debug.Log("squareForAverageCentral.position.y: " +  squareForAverageCentral.position.y);
-       
 
         switch((xOffset, zOffset,squareForAverageOutside.renderMesh))
         {
             case(-1,-1,true):
                 // bottom left / top right 
-                cornerOne = (squareForAverageOutside.edgeUpRight.y+squareForAverageCentral.edgeDownLeft.y) /2f;
+                cornerOne = (squareForAverageOutside.edgeUpRight.position.y+squareForAverageCentral.edgeDownLeft.position.y) /2f;
 
-                returnHeightTotal[0] = makeHieghtArray(cornerOne,squareForAverageCentral.edgeDownRight.y,squareForAverageCentral.edgeUpRight.y,squareForAverageCentral.edgeUpLeft.y);
-                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,squareForAverageOutside.edgeDownRight.y,cornerOne,squareForAverageOutside.edgeUpLeft.y);
-
-                Debug.Log("bottom left / top right");
-                Debug.Log("cornerOne: "+cornerOne);
+                returnHeightTotal[0] = makeHieghtArray(cornerOne,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
+                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,cornerOne,squareForAverageOutside.edgeUpLeft.position.y);
 
                 return returnHeightTotal;
 
 
             case(0,-1,true):
                 // bottom right, bottom left / top right, top left
-                Debug.Log("squareForAverageOutside.edgeUpRight.y: "+ squareForAverageOutside.edgeUpRight.y);
-                Debug.Log("squareForAverageCentral.edgeDownRight.y: "+ squareForAverageCentral.edgeDownRight.y);
-                cornerOne = (squareForAverageOutside.edgeUpRight.y+squareForAverageCentral.edgeDownRight.y) / 2f;
 
-                cornerTwo = (squareForAverageOutside.edgeUpLeft.y+squareForAverageCentral.edgeDownLeft.y) /2f;
-                // squareForAverageOutside.edgeUpLeft.y = cornerTwo;
-                // squareForAverageCentral.edgeDownLeft.y = cornerTwo;
+                cornerOne = (squareForAverageOutside.edgeUpRight.position.y+squareForAverageCentral.edgeDownRight.position.y) / 2f;
+                cornerTwo = (squareForAverageOutside.edgeUpLeft.position.y+squareForAverageCentral.edgeDownLeft.position.y) /2f;
 
-
-                returnHeightTotal[0] = makeHieghtArray(cornerTwo,cornerOne,squareForAverageCentral.edgeUpRight.y,squareForAverageCentral.edgeUpLeft.y);
-                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,squareForAverageOutside.edgeDownRight.y,cornerOne,cornerTwo);
+                returnHeightTotal[0] = makeHieghtArray(cornerTwo,cornerOne,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
+                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,cornerOne,cornerTwo);
                 
-
-                Debug.Log("bottom right, bottom left / top right, top left");
-                Debug.Log("cornerOne: "+cornerOne);
-                Debug.Log("cornerTwo: "+cornerTwo);
                 return returnHeightTotal;
 
 
             case(1,-1,true):
                 // bottom right /top left 
-                cornerOne = (squareForAverageOutside.edgeUpLeft.y+squareForAverageCentral.edgeDownRight.y) /2f;
+                cornerOne = (squareForAverageOutside.edgeUpLeft.position.y+squareForAverageCentral.edgeDownRight.position.y) /2f;
 
-                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,cornerOne,squareForAverageCentral.edgeUpRight.y,squareForAverageCentral.edgeUpLeft.y);
-                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,squareForAverageOutside.edgeDownRight.y,squareForAverageOutside.edgeUpRight.y,cornerOne);
+                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,cornerOne,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
+                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,cornerOne);
 
-
-                Debug.Log("bottom right /top left");
-                Debug.Log("cornerOne: "+cornerOne);
                 return returnHeightTotal;
 
 
             case(-1,0,true):
                 // top left bottom left / top right bottom right
 
-                cornerOne = (squareForAverageOutside.edgeUpRight.y+squareForAverageCentral.edgeUpLeft.y) /2f;
+                cornerOne = (squareForAverageOutside.edgeUpRight.position.y+squareForAverageCentral.edgeUpLeft.position.y) /2f;
+                cornerTwo = (squareForAverageOutside.edgeDownRight.position.y+squareForAverageCentral.edgeDownLeft.position.y) /2f;
 
-                cornerTwo = (squareForAverageOutside.edgeDownRight.y+squareForAverageCentral.edgeDownLeft.y) /2f;
+                returnHeightTotal[0] = makeHieghtArray(cornerTwo,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,cornerOne);
+                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,cornerTwo,cornerOne,squareForAverageOutside.edgeUpLeft.position.y);
 
-                returnHeightTotal[0] = makeHieghtArray(cornerTwo,squareForAverageCentral.edgeDownRight.y,squareForAverageCentral.edgeUpRight.y,cornerOne);
-                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,cornerTwo,cornerOne,squareForAverageOutside.edgeUpLeft.y);
-
-                Debug.Log("top left bottom left / top right bottom right");
-                Debug.Log("cornerOne: "+cornerOne);
-                Debug.Log("cornerTwo: "+cornerTwo);
                 return returnHeightTotal;
 
             case(0,0,true):
@@ -1393,70 +1530,50 @@ public class TerrainEditor : MonoBehaviour
             case(1,0,true):
                 // top right bottom right / top left bottom left
 
-                cornerOne = (squareForAverageOutside.edgeUpLeft.y+squareForAverageCentral.edgeUpRight.y) /2f;
+                cornerOne = (squareForAverageOutside.edgeUpLeft.position.y+squareForAverageCentral.edgeUpRight.position.y) /2f;
+                cornerTwo = (squareForAverageOutside.edgeDownLeft.position.y+squareForAverageCentral.edgeDownRight.position.y) /2f;
 
-                cornerTwo = (squareForAverageOutside.edgeDownLeft.y+squareForAverageCentral.edgeDownRight.y) /2f;
-
-
-                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,cornerTwo,cornerOne,squareForAverageCentral.edgeUpLeft.y);
-                returnHeightTotal[1] = makeHieghtArray(cornerTwo,squareForAverageOutside.edgeDownRight.y,squareForAverageOutside.edgeUpRight.y,cornerOne);
-
-
-                Debug.Log("top right bottom right / top left bottom left");
-                Debug.Log("cornerOne: "+cornerOne);
-                Debug.Log("cornerTwo: "+cornerTwo);
+                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,cornerTwo,cornerOne,squareForAverageCentral.edgeUpLeft.position.y);
+                returnHeightTotal[1] = makeHieghtArray(cornerTwo,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,cornerOne);
 
                 return returnHeightTotal;
 
             case(-1,1,true):
                 //  top left / bottom right 
 
-                cornerOne = (squareForAverageOutside.edgeDownRight.y+squareForAverageCentral.edgeUpLeft.y) /2f;
-                Debug.Log(" top left / bottom right ");
-                Debug.Log("cornerOne: "+cornerOne);
+                cornerOne = (squareForAverageOutside.edgeDownRight.position.y+squareForAverageCentral.edgeUpLeft.position.y) /2f;
 
-                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,squareForAverageCentral.edgeDownRight.y,squareForAverageCentral.edgeUpRight.y,cornerOne);
-                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,cornerOne,squareForAverageOutside.edgeUpRight.y,squareForAverageOutside.edgeUpLeft.y);
+                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,cornerOne);
+                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,cornerOne,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
 
                 return returnHeightTotal;
 
             case(0,1,true):
                 // top left top right / bottom left  bottom right 
 
-                cornerOne = (squareForAverageOutside.edgeDownLeft.y+squareForAverageCentral.edgeUpLeft.y) /2f;
+                cornerOne = (squareForAverageOutside.edgeDownLeft.position.y+squareForAverageCentral.edgeUpLeft.position.y) /2f;
+                cornerTwo = (squareForAverageOutside.edgeDownRight.position.y+squareForAverageCentral.edgeUpRight.position.y) /2f;
 
-                cornerTwo = (squareForAverageOutside.edgeDownRight.y+squareForAverageCentral.edgeUpRight.y) /2f;
-
-                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,squareForAverageCentral.edgeDownRight.y,cornerTwo,cornerOne);
-                returnHeightTotal[1] = makeHieghtArray(cornerOne,cornerTwo,squareForAverageOutside.edgeUpRight.y,squareForAverageOutside.edgeUpLeft.y);
-
-
-                Debug.Log("top left top right / bottom left  bottom right ");
-                Debug.Log("cornerOne: "+cornerOne);
-                Debug.Log("cornerTwo: "+cornerTwo);
+                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,cornerTwo,cornerOne);
+                returnHeightTotal[1] = makeHieghtArray(cornerOne,cornerTwo,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
 
                 return returnHeightTotal;
 
             case(1,1,true):
                 //  top right / bottom left
 
-                cornerOne = (squareForAverageOutside.edgeDownLeft.y+squareForAverageCentral.edgeUpRight.y) /2f;
-                squareForAverageOutside.edgeDownLeft.y = cornerOne;
-                squareForAverageCentral.edgeUpRight.y = cornerOne;
+                cornerOne = (squareForAverageOutside.edgeDownLeft.position.y+squareForAverageCentral.edgeUpRight.position.y) /2f;
 
-                Debug.Log("top right / bottom left");
-                Debug.Log("cornerOne: "+cornerOne);
-                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,squareForAverageCentral.edgeDownRight.y,cornerOne,squareForAverageCentral.edgeUpLeft.y);
-                returnHeightTotal[1] = makeHieghtArray(cornerOne,squareForAverageOutside.edgeDownRight.y,squareForAverageOutside.edgeUpRight.y,squareForAverageOutside.edgeUpLeft.y);
+                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,cornerOne,squareForAverageCentral.edgeUpLeft.position.y);
+                returnHeightTotal[1] = makeHieghtArray(cornerOne,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
 
-                // returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,squareForAverageCentral.edgeDownRight.y,squareForAverageCentral.edgeUpRight.y,squareForAverageCentral.edgeUpLeft.y);
-                // returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,squareForAverageOutside.edgeDownRight.y,squareForAverageOutside.edgeUpRight.y,squareForAverageOutside.edgeUpLeft.y);
                 return returnHeightTotal;
             default:
                 Debug.Log("Borked!!!");
-                Debug.Log("xOffset, zOffset,squareForAverageOutside.renderMesh: "+ xOffset+" "+ zOffset+" "+squareForAverageOutside.renderMesh);
-                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.y,squareForAverageCentral.edgeDownRight.y,squareForAverageCentral.edgeUpRight.y,squareForAverageCentral.edgeUpLeft.y);
-                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.y,squareForAverageOutside.edgeDownRight.y,squareForAverageOutside.edgeUpRight.y,squareForAverageOutside.edgeUpLeft.y);
+
+                returnHeightTotal[0] = makeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
+                returnHeightTotal[1] = makeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
+
                 return returnHeightTotal;
         }
         return null;
@@ -1473,100 +1590,8 @@ public class TerrainEditor : MonoBehaviour
         return returnArray;
     }
 
-    private void GenerateWaterOnGrid(WaterGrid gridForGeneration)
-    {
-        WaterWaypoint curentWaypoint = gridForGeneration.startingWaypoint;
-
-        int xToNextWaypoint = Mathf.RoundToInt(curentWaypoint.nextWaypoint.currentWaypoint.transform.position.x-gridForGeneration.startWaypointSquare.position.x);
-        int zToNextWaypoint = Mathf.RoundToInt(curentWaypoint.nextWaypoint.currentWaypoint.transform.position.z-gridForGeneration.startWaypointSquare.position.z);
-        WaterSquare nextWaypointSquare = gridForGeneration.squareMatrix[Mathf.RoundToInt(gridForGeneration.startWaypointSquare.gridId.x)+xToNextWaypoint][Mathf.RoundToInt(gridForGeneration.startWaypointSquare.gridId.y)+zToNextWaypoint];
-
-        int xOffset = 0;
-        int zOffset = 0;
-        int xModifier = 1;
-        int zModifier = 1;
-        int startingX = Mathf.RoundToInt(gridForGeneration.startWaypointSquare.gridId.x);
-        int startingZ = Mathf.RoundToInt(gridForGeneration.startWaypointSquare.gridId.y);
-
-        if(xToNextWaypoint<0)
-        {
-            xModifier = -1;
-        }
-        if(zToNextWaypoint<0)
-        {
-            zModifier = -1;
-        }
-
-        bool canDiag = true;
-
-        Debug.Log("xToNextWaypoint: "+xToNextWaypoint);
-        Debug.Log("zToNextWaypoint: "+zToNextWaypoint);
-
-        createWaterPlane(gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.x,gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.z,-2,1,1,true,true);
-        while ((Mathf.Abs(xToNextWaypoint)+Mathf.Abs(zToNextWaypoint))>0)
-        {
-            // Debug.Log("points mod 2: "+(xToNextWaypoint+zToNextWaypoint)%2);
-            if((Mathf.Abs(xToNextWaypoint)+Mathf.Abs(zToNextWaypoint))%2 ==0 && canDiag)
-            {
-                Debug.Log("--------------------------------------------------------------");
-                Debug.Log("Generating water diagonally from X: "+(startingX+xOffset) + " and Z: "+(startingZ+zOffset));
-                xOffset += xModifier;
-                zOffset += zModifier;
-                createWaterPlane(gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.x,gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.z,-2,1,1,true,true);
-                xToNextWaypoint -=xModifier;
-                zToNextWaypoint -=zModifier;
-                canDiag = false;
-                Debug.Log("TO X: "+(startingX+xOffset) + " and Z: "+(startingZ+zOffset));
-                Debug.Log("Offsets are at X: "+xOffset + " and Z: "+zOffset);
-                Debug.Log("Remaining distance to second waypooint X: "+xToNextWaypoint + " and Z: "+zToNextWaypoint);
-                Debug.Log("--------------------------------------------------------------");
-
-            }
-            else 
-            {
-                if(Mathf.Abs(xToNextWaypoint) >= Mathf.Abs(zToNextWaypoint))
-                {
-                    Debug.Log("--------------------------------------------------------------");
-                    Debug.Log("Generating water vertically from X: "+xToNextWaypoint + " and Z: "+zToNextWaypoint);
-                    xOffset +=xModifier;
-                    createWaterPlane(gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.x,gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.z,-2,1,1,true,true);
-                    xToNextWaypoint -=xModifier;
-                    canDiag = true;
-                    Debug.Log("TO X: "+(startingX+xOffset) + " and Z: "+(startingZ+zOffset));
-                    Debug.Log("Offsets are at X: "+xOffset + " and Z: "+zOffset);
-                    Debug.Log("Remaining distance to second waypooint X: "+xToNextWaypoint + " and Z: "+zToNextWaypoint);
-                    Debug.Log("--------------------------------------------------------------");
-                }
-                else if(Mathf.Abs(xToNextWaypoint) < Mathf.Abs(zToNextWaypoint))
-                {
-                    Debug.Log("--------------------------------------------------------------");
-                    Debug.Log("Generating water horizontally from X: "+(startingX+xOffset) + " and Z: "+(startingZ+zOffset));
-                    canDiag = true;
-                    zOffset +=zModifier;
-                    createWaterPlane(gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.x,gridForGeneration.squareMatrix[startingX+xOffset][startingZ+zOffset].position.z,-2,1,1,true,true);
-                    zToNextWaypoint -=zModifier;
-                    Debug.Log("TO X: "+(startingX+xOffset) + " and Z: "+(startingZ+zOffset));
-                    Debug.Log("Offsets are at X: "+xOffset + " and Z: "+zOffset);
-                    Debug.Log("Remaining distance to second waypooint X: "+xToNextWaypoint + " and Z: "+zToNextWaypoint);
-                    Debug.Log("--------------------------------------------------------------");
-                }
-            }
-        }
-        // Debug.Log("gridForGeneration.startWaypointSquare.gridId.x: "+gridForGeneration.startWaypointSquare.gridId.x);
-        // Debug.Log("gridForGeneration.startWaypointSquare.gridId.y: "+gridForGeneration.startWaypointSquare.gridId.y);
-        // Debug.Log("xToNextWaypoint: "+xToNextWaypoint);
-        // Debug.Log("zToNextWaypoint: "+zToNextWaypoint);
-        // Debug.Log("next Waypoint square location X: "+nextWaypointSquare.gridId.x);
-        // Debug.Log("next Waypoint square location Z: "+nextWaypointSquare.gridId.y);
-        // Debug.Log("next Waypoint square world location X: "+nextWaypointSquare.position.x);
-        // Debug.Log("next Waypoint square world location Z: "+nextWaypointSquare.position.z);
-
-
-
-    }
-
     
-    private WaterGrid generateVerticeArray(WaterWaypoint waypoint)
+    private WaterGrid generateVerticeArray(WaterWaypoint waypoint, float precision)
     {
         float maxWidth = waypoint.currentWaypoint.transform.position.x;
         float minWidth = waypoint.currentWaypoint.transform.position.x;
@@ -1605,23 +1630,12 @@ public class TerrainEditor : MonoBehaviour
             waypoint = waypoint.nextWaypoint;
         }
        
-        // Debug.Log("maxWidth pre buff : "+maxWidth);
-        // Debug.Log("minWidth pre buff : "+minWidth);
-        // Debug.Log("maxLength pre buff : "+maxLength);
-        // Debug.Log("minLength pre buff : "+minLength);
-
-
         int arrayX = Mathf.CeilToInt(maxWidth)-Mathf.CeilToInt(minWidth)+20;
         int arrayY = Mathf.CeilToInt(maxLength)-Mathf.CeilToInt(minLength)+20;
-        // Debug.Log("arrayX : "+arrayX);
-        // Debug.Log("arrayY : "+arrayY);
+
 
         Vector3 gridStartingLocation = new Vector3(minXWaypoint.currentWaypoint.transform.position.x-10, 0, minYWaypoint.currentWaypoint.transform.position.z-10);
         Vector3 startingWaypointSquarePos = new Vector3(Mathf.Round(returnGrid.startingWaypoint.currentWaypoint.transform.position.x-gridStartingLocation.x),0,Mathf.Round(returnGrid.startingWaypoint.currentWaypoint.transform.position.z-gridStartingLocation.z));
-        // Debug.Log("Starting waypoint Z : "+returnGrid.startingWaypoint.currentWaypoint.transform.position.z);
-        // Debug.Log("Grid starting location Z : "+gridStartingLocation.z);
-        // Debug.Log("Starting square calculated position X: "+startingSquarePos.x);
-        // Debug.Log("Starting square calculated position Y: "+startingSquarePos.z);
 
 
         WaterSquare[][] squareMatrix = new WaterSquare[arrayX][];
@@ -1633,15 +1647,14 @@ public class TerrainEditor : MonoBehaviour
                 squareMatrix[i][j] = new WaterSquare();
                 squareMatrix[i][j].gridId = new Vector2(i,j);
                 squareMatrix[i][j].position = new Vector3(gridStartingLocation.x+i,0,gridStartingLocation.z+j);
-                squareMatrix[i][j].edgeDownLeft = new Vector3(squareMatrix[i][j].position.x-0.5f,0,squareMatrix[i][j].position.z-0.5f);
-                squareMatrix[i][j].edgeDownRight = new Vector3(squareMatrix[i][j].position.x+0.5f,0,squareMatrix[i][j].position.z-0.5f);
-                squareMatrix[i][j].edgeUpLeft = new Vector3(squareMatrix[i][j].position.x-0.5f,0,squareMatrix[i][j].position.z+0.5f);
-                squareMatrix[i][j].edgeUpRight = new Vector3(squareMatrix[i][j].position.x+0.5f,0,squareMatrix[i][j].position.z+0.5f);
+                squareMatrix[i][j].edgeDownLeft.position = new Vector3(squareMatrix[i][j].position.x-0.5f,0,squareMatrix[i][j].position.z-0.5f);
+                squareMatrix[i][j].edgeDownRight.position = new Vector3(squareMatrix[i][j].position.x+0.5f,0,squareMatrix[i][j].position.z-0.5f);
+                squareMatrix[i][j].edgeUpLeft.position = new Vector3(squareMatrix[i][j].position.x-0.5f,0,squareMatrix[i][j].position.z+0.5f);
+                squareMatrix[i][j].edgeUpRight.position = new Vector3(squareMatrix[i][j].position.x+0.5f,0,squareMatrix[i][j].position.z+0.5f);
                 squareMatrix[i][j].renderMesh = false;
             }
         }
-        // Debug.Log("StartWaypointSquare X: "+Mathf.RoundToInt(startingWaypointSquarePos.x));
-        // Debug.Log("StartWaypointSquare Z: "+Mathf.RoundToInt(startingWaypointSquarePos.z));
+
         returnGrid.startWaypointSquare = squareMatrix[Mathf.RoundToInt(startingWaypointSquarePos.x)][Mathf.RoundToInt(startingWaypointSquarePos.z)];
         returnGrid.originPosition = gridStartingLocation;
 
@@ -1678,6 +1691,15 @@ public class TerrainEditor : MonoBehaviour
             
         }
         return null;
+    }
+
+    private void ClearWaypoints()
+    {
+        foreach(WaterWaypoint waypoint in waypointsForGeneration)
+        {
+            Destroy(waypoint.currentWaypoint);
+        }
+        waypointsForGeneration.Clear();
     }
 
     // --------------------------------------------------------------- WATER END-------------------------------------------------------------------------------------------
