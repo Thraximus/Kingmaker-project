@@ -844,7 +844,6 @@ GameObject:
   - component: {fileID: 1653783123}
   - component: {fileID: 1653783122}
   - component: {fileID: 1653783121}
-  - component: {fileID: 1653783124}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -950,20 +949,6 @@ Terrain:
   m_GroupingID: 0
   m_RenderingLayerMask: 1
   m_AllowAutoConnect: 1
---- !u!114 &1653783124
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1653783119}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 11fcb2988e15dc249ae7be2c873de8da, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  riverMaterial: {fileID: 2100000, guid: 324e8320a5aab1d48af1c29596a6e940, type: 2}
-  oceanMaterial: {fileID: 2100000, guid: 324e8320a5aab1d48af1c29596a6e940, type: 2}
 --- !u!1001 &1764726805
 PrefabInstance:
   m_ObjectHideFlags: 0
