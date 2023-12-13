@@ -145,23 +145,7 @@ public class TerrainEditor : MonoBehaviour
     // Update is called once per frame
     private void Update()
     {
-        if (terrainManipulator.terrainManipulationActive == true)
-        {
-            if(!Input.GetMouseButton(0) && !Input.GetMouseButton(1) )
-            {
-                ClearRedoStack();
-                terrainManipulator.terrainManipulationActive = false;
-            }
-        }
-
-        if(Input.GetMouseButton(0) && terrainManipulationEnabled && Input.mousePosition.x < Screen.width - (Screen.width/100*22) )
-        {
-            if(terrainManipulator.terrainManipulationActive == false)
-            {
-                AddToTerrainUndoStack();
-            }
-            terrainManipulator.RaiseOrLowerTerrain(true);
-        }
+       
 
         if(Input.GetMouseButton(1) && terrainManipulationEnabled && Input.mousePosition.x < Screen.width - (Screen.width/100*22))
         {
@@ -244,6 +228,24 @@ public class TerrainEditor : MonoBehaviour
             ClearRedoStack();
             Debug.Log("click");
             waterGenerator.createWaterWaypoint();
+        }
+
+         if (terrainManipulator.terrainManipulationActive == true)
+        {
+            if(!Input.GetMouseButton(0) && !Input.GetMouseButton(1) )
+            {
+                ClearRedoStack();
+                terrainManipulator.terrainManipulationActive = false;
+            }
+        }
+
+        if(Input.GetMouseButton(0) && terrainManipulationEnabled && Input.mousePosition.x < Screen.width - (Screen.width/100*22) )
+        {
+            if(terrainManipulator.terrainManipulationActive == false)
+            {
+                AddToTerrainUndoStack();
+            }
+            terrainManipulator.RaiseOrLowerTerrain(true);
         }
     }
 
