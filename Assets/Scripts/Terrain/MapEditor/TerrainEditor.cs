@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class TerrainEditor : MonoBehaviour
@@ -131,11 +132,14 @@ public class TerrainEditor : MonoBehaviour
     private TerrainData terrainData;
     private int allTextureVariants = -0;
 
-    DynamicMeshGenerator meshGenerator = new DynamicMeshGenerator();
+    DynamicMeshGenerator meshGenerator = null;
+
+    
     
   
     private void Start()
     {
+        meshGenerator =  this.AddComponent<DynamicMeshGenerator>();
         loadTerrainTextures();
 
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE

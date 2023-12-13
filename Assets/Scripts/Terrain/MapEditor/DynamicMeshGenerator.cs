@@ -7,7 +7,7 @@ using UnityEngine;
 /// <summary>
 /// Creates a flat arrow mesh
 /// </summary>
-public class DynamicMeshGenerator : MonoBehaviour
+public class DynamicMeshGenerator: MonoBehaviour
 {
 
     [SerializeField] private Material riverMaterial;
