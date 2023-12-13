@@ -10,11 +10,8 @@ public class TerrainEditor : MonoBehaviour
         public int textureIndex;
         public float startingHeight;
     };
-    [SerializeField] private Terrain terrain;
-    [SerializeField] private Material riverMaterial;
-    [SerializeField] private Material oceanMaterial;
+    // [SerializeField] public Terrain terrain;
     [SerializeField] private ComputeShader brushDropoffShader;
-    [SerializeField] private GameObject waterWaypointObject;
      public float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
     [SerializeField] public string mapNameForLoadSave;             // Name under which the map will be saved                           TODO: unserialize
     [SerializeField] private  Texture2D heightmapSaveLoadBuffer;    // Memory buffer used to store the map to be loaded or to be saved  TODO: unserialize
@@ -27,7 +24,7 @@ public class TerrainEditor : MonoBehaviour
     [HideInInspector] public bool terrainManipulationEnabled = false; 
     [HideInInspector] public bool waterCreationEnabled = true; 
     [HideInInspector] public string brushEffect = "SmoothManipultionTool";
-    private List<WaterWaypoint> waypointsForGeneration = new List<WaterWaypoint>();
+    // private List<WaterGenerator.WaterWaypoint> waypointsForGeneration = new List<WaterGenerator.WaterWaypoint>();
 
     private bool placeWaterWaypointEnabeled = false;
     class WaterWaypoint
@@ -45,33 +42,7 @@ public class TerrainEditor : MonoBehaviour
             previousWaypoint = inputPreviousWaypoint;
         }
     }
-    private float WaterWaypointHeight=-2f;
 
-    private float waterPrecision = 0.2f;
-    struct WaterGrid
-    {
-        public WaterSquare[][] squareMatrix;
-        public WaterWaypoint startingWaypoint;
-        public WaterSquare startWaypointSquare;
-        public Vector3 originPosition;
-    }
-    struct WaterSquare
-    {
-        public Vector3 position;
-        public Vertice edgeDownLeft;
-        public Vertice edgeDownRight;
-        public Vertice edgeUpLeft;
-        public Vertice edgeUpRight;
-        public bool renderMesh;
-        public Vector2 gridId;
-    }
-    struct Vertice
-    {
-        public Vector3 position;
-        public bool isCalculated;
-    }
-    private WaterWaypoint pastWaterWaypoint = null;
-    private WaterWaypoint currentWaterWaypoint = null;
     
     struct BrushPixel
     {
@@ -95,8 +66,8 @@ public class TerrainEditor : MonoBehaviour
     [HideInInspector] public float realBrushStrength;
     private BrushPixel[] loadedBrush;
     private BrushPixel[] computedBrush;
-    private int hitX;
-    private int hitZ;
+    // private int hitX;
+    // private int hitZ;
     private List<float[,]> terrainUndoStack = new List<float[,]>();
     private List<float[,]> terrainRedoStack = new List<float[,]>();
     private List<WaterWaypoint> waterWaypointUndoStack = new List<WaterWaypoint>();
@@ -133,13 +104,17 @@ public class TerrainEditor : MonoBehaviour
     private int allTextureVariants = -0;
 
     DynamicMeshGenerator meshGenerator = null;
+    WaterGenerator waterGenerator = null;
+    TerrainGenerator terrainGenerator = null;
 
     
     
   
     private void Start()
     {
-        meshGenerator =  this.AddComponent<DynamicMeshGenerator>();
+        meshGenerator =  this.GetComponent<DynamicMeshGenerator>();
+        waterGenerator = this.GetComponent<WaterGenerator>();
+        terrainGenerator = this.GetComponent<TerrainGenerator>();
         loadTerrainTextures();
 
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE
@@ -158,19 +133,19 @@ public class TerrainEditor : MonoBehaviour
 
     }
 
-    private float[,] returnCopyOfMesh(float[,] originalMesh)
-    {
-        var returnMesh = new float[originalMesh.GetLength(0),originalMesh.GetLength(1)];
-        for( int i = 0; i < originalMesh.GetLength(0);i++ )
-        {
-            for( int j = 0; j < originalMesh.GetLength(1);j++ )
-            {
-                returnMesh[i,j] = originalMesh[i,j];                                                                                  //  set base height 
-            }                                                                                                       //  TODO: make custimisable / resetable
-        }
+    // private float[,] returnCopyOfMesh(float[,] originalMesh)
+    // {
+    //     var returnMesh = new float[originalMesh.GetLength(0),originalMesh.GetLength(1)];
+    //     for( int i = 0; i < originalMesh.GetLength(0);i++ )
+    //     {
+    //         for( int j = 0; j < originalMesh.GetLength(1);j++ )
+    //         {
+    //             returnMesh[i,j] = originalMesh[i,j];                                                                                  //  set base height 
+    //         }                                                                                                       //  TODO: make custimisable / resetable
+    //     }
 
-        return returnMesh;
-    }
+    //     return returnMesh;
+    // }
 
     // Update is called once per frame
     private void Update()
@@ -249,8 +224,7 @@ public class TerrainEditor : MonoBehaviour
         if(Input.GetKeyUp(KeyCode.R) && !placeWaterWaypointEnabeled)                                // Temporary save key
         {
             Debug.Log("enabeled");
-            pastWaterWaypoint= null;
-            currentWaterWaypoint = null;
+            waterGenerator.enableWaypointPlacement();
             placeWaterWaypointEnabeled = true;    // TODO place this function on GUI object
         }else if(Input.GetKeyUp(KeyCode.R) && placeWaterWaypointEnabeled)                                // Temporary save key
         {
@@ -266,58 +240,14 @@ public class TerrainEditor : MonoBehaviour
         {
             ClearRedoStack();
             // GenerateWater(0.6f);        // TODO place this function on GUI object
-
-            
-            
-
-            if(waypointsForGeneration.Count > 0)
-            {
-                foreach(WaterWaypoint startWaypoint in waypointsForGeneration)
-                {
-                    if(startWaypoint.previousWaypoint == null)
-                    {
-                        WaterGrid waterGrid = generateVerticeArray(startWaypoint);
-                        populateWaterGrid(ref waterGrid,0.1f);
-                        CalculateWaterGridHeights(ref waterGrid);
-                        GenerateWaterFromWaterGrid(waterGrid);
-                    }
-                }
-                 ClearWaypoints();
-            }
+            waterGenerator.generateWaterFromWaypoints();
         }
         
         if(Input.GetMouseButtonUp(0) && placeWaterWaypointEnabeled && Input.mousePosition.x < Screen.width - (Screen.width/100*22) )
         {
             ClearRedoStack();
             Debug.Log("click");
-            currentWaterWaypoint = CreateWaypointSingle(WaterWaypointHeight);
-            AddToWaterWaypointUndoStack(currentWaterWaypoint);
-            // WaterWaypointHeight += 0.9f; TODO : just for debug purposes
-            if(pastWaterWaypoint != null)
-            {
-                currentWaterWaypoint.previousWaypoint = pastWaterWaypoint;
-                pastWaterWaypoint.nextWaypoint = currentWaterWaypoint;
-
-                Vector3 lookPos = currentWaterWaypoint.currentWaypoint.transform.position - pastWaterWaypoint.currentWaypoint.transform.position;
-                Quaternion newRotation = Quaternion.LookRotation(lookPos);
-                pastWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
-                currentWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
-
-                currentWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
-                pastWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
-                currentWaterWaypoint.lookVector = lookPos;
-                pastWaterWaypoint.lookVector = lookPos;
-
-                LineRenderer lr = pastWaterWaypoint.currentWaypoint.AddComponent<LineRenderer>();
-                lr.startWidth = 0.05f;
-                lr.endWidth = 0.05f;
-
-                lr.SetPosition(0, new Vector3(pastWaterWaypoint.currentWaypoint.transform.position.x,pastWaterWaypoint.currentWaypoint.transform.position.y,pastWaterWaypoint.currentWaypoint.transform.position.z));
-                lr.SetPosition(1, new Vector3(currentWaterWaypoint.currentWaypoint.transform.position.x,currentWaterWaypoint.currentWaypoint.transform.position.y,currentWaterWaypoint.currentWaypoint.transform.position.z));
-            }
-
-            pastWaterWaypoint = currentWaterWaypoint;
-            
+            waterGenerator.createWaterWaypoint();
         }
     }
 
@@ -397,7 +327,7 @@ public class TerrainEditor : MonoBehaviour
     private void AddToTerrainRedoStack()
     {
         redoMemoryStack.Add(ActionType.TERRAIN);
-        terrainRedoStack.Add(returnCopyOfMesh(mesh));
+        terrainRedoStack.Add(terrainGenerator.returnCopyOfMesh(mesh));
     }
 
     private void AddToWaterWaypointRedoStack(WaterWaypoint waypointToAddToRedo)
@@ -463,7 +393,7 @@ public class TerrainEditor : MonoBehaviour
     {
         AddToTerrainUndoStack();
         this.terrain.terrainData.SetHeights(0,0, terrainRedoStack[terrainRedoStack.Count-1]);
-        mesh = returnCopyOfMesh(terrainRedoStack[terrainRedoStack.Count-1]);
+        mesh = terrainGenerator.returnCopyOfMesh(terrainRedoStack[terrainRedoStack.Count-1]);
         terrainRedoStack.RemoveAt(terrainRedoStack.Count-1);
     }
 
@@ -479,102 +409,107 @@ public class TerrainEditor : MonoBehaviour
 
     private void RedoWaterWaypointManipulation()
     {
-        if(waterWaypointRedoStack.Count>0)
-        {
-            GameObject waterStartWaypoint = Instantiate(waterWaypointObject, new Vector3(0,0,0),Quaternion.identity);
-            waterStartWaypoint.GetComponent<MeshFilter>().mesh = meshGenerator.generateArrowMesh();
-            waterStartWaypoint.transform.position = new Vector3(waterWaypointRedoStack[waterWaypointRedoStack.Count-1].posX,waterWaypointRedoStack[waterWaypointRedoStack.Count-1].posY,waterWaypointRedoStack[waterWaypointRedoStack.Count-1].posZ);
+        //TODO REIMPLEMENT UNDO REDO
 
-            WaterWaypoint waypoint = new WaterWaypoint(waterWaypointRedoStack[waterWaypointRedoStack.Count-1].previousWaypoint,waterStartWaypoint,waterWaypointRedoStack[waterWaypointRedoStack.Count-1].nextWaypoint);
-            if(pastWaterWaypoint != null)
-            {
-                waypoint.previousWaypoint = pastWaterWaypoint;
-                pastWaterWaypoint.nextWaypoint = waypoint;
 
-                Vector3 lookPos = waypoint.currentWaypoint.transform.position - pastWaterWaypoint.currentWaypoint.transform.position;
-                Quaternion newRotation = Quaternion.LookRotation(lookPos);
-                pastWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
-                waypoint.currentWaypoint.transform.rotation = newRotation;
+        // if(waterWaypointRedoStack.Count>0)
+        // {
+        //     GameObject waterStartWaypoint = Instantiate(waterWaypointObject, new Vector3(0,0,0),Quaternion.identity);
+        //     waterStartWaypoint.GetComponent<MeshFilter>().mesh = meshGenerator.generateArrowMesh();
+        //     waterStartWaypoint.transform.position = new Vector3(waterWaypointRedoStack[waterWaypointRedoStack.Count-1].posX,waterWaypointRedoStack[waterWaypointRedoStack.Count-1].posY,waterWaypointRedoStack[waterWaypointRedoStack.Count-1].posZ);
 
-                waypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
-                pastWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
-                waypoint.lookVector = lookPos;
-                pastWaterWaypoint.lookVector = lookPos;
+        //     WaterWaypoint waypoint = new WaterWaypoint(waterWaypointRedoStack[waterWaypointRedoStack.Count-1].previousWaypoint,waterStartWaypoint,waterWaypointRedoStack[waterWaypointRedoStack.Count-1].nextWaypoint);
+        //     if(pastWaterWaypoint != null)
+        //     {
+        //         waypoint.previousWaypoint = pastWaterWaypoint;
+        //         pastWaterWaypoint.nextWaypoint = waypoint;
 
-                LineRenderer lr = pastWaterWaypoint.currentWaypoint.AddComponent<LineRenderer>();
-                lr.startWidth = 0.05f;
-                lr.endWidth = 0.05f;
+        //         Vector3 lookPos = waypoint.currentWaypoint.transform.position - pastWaterWaypoint.currentWaypoint.transform.position;
+        //         Quaternion newRotation = Quaternion.LookRotation(lookPos);
+        //         pastWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
+        //         waypoint.currentWaypoint.transform.rotation = newRotation;
 
-                lr.SetPosition(0, new Vector3(pastWaterWaypoint.currentWaypoint.transform.position.x,pastWaterWaypoint.currentWaypoint.transform.position.y,pastWaterWaypoint.currentWaypoint.transform.position.z));
-                lr.SetPosition(1, new Vector3(waypoint.currentWaypoint.transform.position.x,waypoint.currentWaypoint.transform.position.y,waypoint.currentWaypoint.transform.position.z));
-            }
+        //         waypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
+        //         pastWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
+        //         waypoint.lookVector = lookPos;
+        //         pastWaterWaypoint.lookVector = lookPos;
 
-            pastWaterWaypoint = waypoint;
+        //         LineRenderer lr = pastWaterWaypoint.currentWaypoint.AddComponent<LineRenderer>();
+        //         lr.startWidth = 0.05f;
+        //         lr.endWidth = 0.05f;
 
-            waypointsForGeneration.Add(waypoint);
+        //         lr.SetPosition(0, new Vector3(pastWaterWaypoint.currentWaypoint.transform.position.x,pastWaterWaypoint.currentWaypoint.transform.position.y,pastWaterWaypoint.currentWaypoint.transform.position.z));
+        //         lr.SetPosition(1, new Vector3(waypoint.currentWaypoint.transform.position.x,waypoint.currentWaypoint.transform.position.y,waypoint.currentWaypoint.transform.position.z));
+        //     }
 
-            waterWaypointRedoStack.RemoveAt(waterWaypointRedoStack.Count-1);
+        //     pastWaterWaypoint = waypoint;
 
-            AddToWaterWaypointUndoStack(waypoint);
-        }
+        //     waypointsForGeneration.Add(waypoint);
+
+        //     waterWaypointRedoStack.RemoveAt(waterWaypointRedoStack.Count-1);
+
+        //     AddToWaterWaypointUndoStack(waypoint);
+        // }
     }
 
     public void RedoWaterWaypointBundleManipulation()
     {
-        pastWaterWaypoint = null;
-        List<waterWaypointRedoStruct> redoBundle = new List<waterWaypointRedoStruct>();
-        while(waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count > 0)
-        {
-            GameObject waterStartWaypoint = Instantiate(waterWaypointObject, new Vector3(0,0,0),Quaternion.identity);
-            waterStartWaypoint.GetComponent<MeshFilter>().mesh = meshGenerator.generateArrowMesh();
-            waterStartWaypoint.transform.position = new Vector3(waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1][waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1].posX,waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1][waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1].posY,waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1][waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1].posZ);
+        //TODO REIMPLEMENT UNDO REDO
 
-            WaterWaypoint waypoint = new WaterWaypoint(null,waterStartWaypoint,null);
+        // pastWaterWaypoint = null;
+        // List<waterWaypointRedoStruct> redoBundle = new List<waterWaypointRedoStruct>();
+        // while(waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count > 0)
+        // {
+        //     GameObject waterStartWaypoint = Instantiate(waterWaypointObject, new Vector3(0,0,0),Quaternion.identity);
+        //     waterStartWaypoint.GetComponent<MeshFilter>().mesh = meshGenerator.generateArrowMesh();
+        //     waterStartWaypoint.transform.position = new Vector3(waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1][waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1].posX,waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1][waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1].posY,waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1][waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1].posZ);
 
-            if( pastWaterWaypoint != null) 
-            {
-                waypoint.previousWaypoint = pastWaterWaypoint;
-                pastWaterWaypoint.nextWaypoint = waypoint;
+        //     WaterWaypoint waypoint = new WaterWaypoint(null,waterStartWaypoint,null);
+
+        //     if( pastWaterWaypoint != null) 
+        //     {
+        //         waypoint.previousWaypoint = pastWaterWaypoint;
+        //         pastWaterWaypoint.nextWaypoint = waypoint;
 
 
-                Vector3 lookPos = waypoint.currentWaypoint.transform.position - pastWaterWaypoint.currentWaypoint.transform.position;
-                Quaternion newRotation = Quaternion.LookRotation(lookPos);
-                pastWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
-                waypoint.currentWaypoint.transform.rotation = newRotation;
+        //         Vector3 lookPos = waypoint.currentWaypoint.transform.position - pastWaterWaypoint.currentWaypoint.transform.position;
+        //         Quaternion newRotation = Quaternion.LookRotation(lookPos);
+        //         pastWaterWaypoint.currentWaypoint.transform.rotation = newRotation;
+        //         waypoint.currentWaypoint.transform.rotation = newRotation;
 
-                waypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
-                pastWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
-                waypoint.lookVector = lookPos;
-                pastWaterWaypoint.lookVector = lookPos;
+        //         waypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
+        //         pastWaterWaypoint.yLockedLookVector = new Vector3(lookPos.x,0,lookPos.z);
+        //         waypoint.lookVector = lookPos;
+        //         pastWaterWaypoint.lookVector = lookPos;
 
-                LineRenderer lr = pastWaterWaypoint.currentWaypoint.AddComponent<LineRenderer>();
-                lr.startWidth = 0.05f;
-                lr.endWidth = 0.05f;
+        //         LineRenderer lr = pastWaterWaypoint.currentWaypoint.AddComponent<LineRenderer>();
+        //         lr.startWidth = 0.05f;
+        //         lr.endWidth = 0.05f;
 
-                lr.SetPosition(0, new Vector3(pastWaterWaypoint.currentWaypoint.transform.position.x,pastWaterWaypoint.currentWaypoint.transform.position.y,pastWaterWaypoint.currentWaypoint.transform.position.z));
-                lr.SetPosition(1, new Vector3(waypoint.currentWaypoint.transform.position.x,waypoint.currentWaypoint.transform.position.y,waypoint.currentWaypoint.transform.position.z));
-            }
+        //         lr.SetPosition(0, new Vector3(pastWaterWaypoint.currentWaypoint.transform.position.x,pastWaterWaypoint.currentWaypoint.transform.position.y,pastWaterWaypoint.currentWaypoint.transform.position.z));
+        //         lr.SetPosition(1, new Vector3(waypoint.currentWaypoint.transform.position.x,waypoint.currentWaypoint.transform.position.y,waypoint.currentWaypoint.transform.position.z));
+        //     }
 
-            pastWaterWaypoint = waypoint;
+        //     pastWaterWaypoint = waypoint;
 
-            waypointsForGeneration.Add(waypoint);
+        //     waypointsForGeneration.Add(waypoint);
 
-            waterWaypointRedoStruct waypointRedo =  new waterWaypointRedoStruct();
-            waypointRedo.posX = waypoint.currentWaypoint.transform.position.x;
-            waypointRedo.posY = waypoint.currentWaypoint.transform.position.y;
-            waypointRedo.posZ = waypoint.currentWaypoint.transform.position.z;
-            waypointRedo.lookvectorYLocked = waypoint.yLockedLookVector;
-            waypointRedo.lookVector = waypoint.lookVector;
-            waypointRedo.previousWaypoint = waypoint.previousWaypoint;
-            waypointRedo.nextWaypoint = waypoint.nextWaypoint;
-            redoBundle.Add(waypointRedo);
+        //     waterWaypointRedoStruct waypointRedo =  new waterWaypointRedoStruct();
+        //     waypointRedo.posX = waypoint.currentWaypoint.transform.position.x;
+        //     waypointRedo.posY = waypoint.currentWaypoint.transform.position.y;
+        //     waypointRedo.posZ = waypoint.currentWaypoint.transform.position.z;
+        //     waypointRedo.lookvectorYLocked = waypoint.yLockedLookVector;
+        //     waypointRedo.lookVector = waypoint.lookVector;
+        //     waypointRedo.previousWaypoint = waypoint.previousWaypoint;
+        //     waypointRedo.nextWaypoint = waypoint.nextWaypoint;
+        //     redoBundle.Add(waypointRedo);
 
-            waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].RemoveAt(waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1);
+        //     waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].RemoveAt(waterWaypointBundleRedoStack[waterWaypointBundleRedoStack.Count-1].Count-1);
 
-        }
-        waterWaypointBundleRedoStack.RemoveAt(waterWaypointBundleRedoStack.Count-1);
+        // }
+        // waterWaypointBundleRedoStack.RemoveAt(waterWaypointBundleRedoStack.Count-1);
 
-        undoMemoryStack.Add(ActionType.WATER_WAYPOINT_BUNDLE);
+        // undoMemoryStack.Add(ActionType.WATER_WAYPOINT_BUNDLE);
         
     }
 
@@ -627,7 +562,7 @@ public class TerrainEditor : MonoBehaviour
 
     private void AddToTerrainUndoStack()
     {
-        terrainUndoStack.Add(returnCopyOfMesh(mesh));
+        terrainUndoStack.Add(terrainGenerator.returnCopyOfMesh(mesh));
         undoMemoryStack.Add(ActionType.TERRAIN);
         CheckAndRemoveUndoStackOverflow();
     }
@@ -677,7 +612,7 @@ public class TerrainEditor : MonoBehaviour
     {
         AddToTerrainRedoStack();
         this.terrain.terrainData.SetHeights(0,0, terrainUndoStack[terrainUndoStack.Count-1]);
-        mesh = returnCopyOfMesh(terrainUndoStack[terrainUndoStack.Count-1]);
+        mesh = terrainGenerator.returnCopyOfMesh(terrainUndoStack[terrainUndoStack.Count-1]);
         terrainUndoStack.RemoveAt(terrainUndoStack.Count-1);
     }
 
@@ -698,56 +633,62 @@ public class TerrainEditor : MonoBehaviour
 
     private void UndoWaterWaypointBundleManipulation()
     {
-        List<waterWaypointRedoStruct> redoBundle = new List<waterWaypointRedoStruct>();
-        currentWaterWaypoint = waypointsForGeneration[waypointsForGeneration.Count-1];
-        while (currentWaterWaypoint != null)
-        {
-            if(currentWaterWaypoint.previousWaypoint != null)
-            {
-                Destroy(waypointsForGeneration[waypointsForGeneration.Count-2].currentWaypoint.GetComponent<LineRenderer>());
-            }
-            Destroy(waypointsForGeneration[waypointsForGeneration.Count-1].currentWaypoint);
+        //TODO REIMPLEMENT UNDO REDO
+
+
+        // List<waterWaypointRedoStruct> redoBundle = new List<waterWaypointRedoStruct>();
+        // currentWaterWaypoint = waypointsForGeneration[waypointsForGeneration.Count-1];
+        // while (currentWaterWaypoint != null)
+        // {
+        //     if(currentWaterWaypoint.previousWaypoint != null)
+        //     {
+        //         Destroy(waypointsForGeneration[waypointsForGeneration.Count-2].currentWaypoint.GetComponent<LineRenderer>());
+        //     }
+        //     Destroy(waypointsForGeneration[waypointsForGeneration.Count-1].currentWaypoint);
             
-            waterWaypointRedoStruct waypointRedo =  new waterWaypointRedoStruct();
-            waypointRedo.posX = currentWaterWaypoint.currentWaypoint.transform.position.x;
-            waypointRedo.posY = currentWaterWaypoint.currentWaypoint.transform.position.y;
-            waypointRedo.posZ = currentWaterWaypoint.currentWaypoint.transform.position.z;
-            waypointRedo.lookvectorYLocked = currentWaterWaypoint.yLockedLookVector;
-            waypointRedo.lookVector = currentWaterWaypoint.lookVector;
-            waypointRedo.previousWaypoint = currentWaterWaypoint.previousWaypoint;
-            waypointRedo.nextWaypoint = currentWaterWaypoint.nextWaypoint;
+        //     waterWaypointRedoStruct waypointRedo =  new waterWaypointRedoStruct();
+        //     waypointRedo.posX = currentWaterWaypoint.currentWaypoint.transform.position.x;
+        //     waypointRedo.posY = currentWaterWaypoint.currentWaypoint.transform.position.y;
+        //     waypointRedo.posZ = currentWaterWaypoint.currentWaypoint.transform.position.z;
+        //     waypointRedo.lookvectorYLocked = currentWaterWaypoint.yLockedLookVector;
+        //     waypointRedo.lookVector = currentWaterWaypoint.lookVector;
+        //     waypointRedo.previousWaypoint = currentWaterWaypoint.previousWaypoint;
+        //     waypointRedo.nextWaypoint = currentWaterWaypoint.nextWaypoint;
 
-            redoBundle.Add(waypointRedo);
+        //     redoBundle.Add(waypointRedo);
 
-            currentWaterWaypoint = waypointsForGeneration[waypointsForGeneration.Count-1].previousWaypoint;
-            waypointsForGeneration.Remove(waypointsForGeneration[waypointsForGeneration.Count-1]);
+        //     currentWaterWaypoint = waypointsForGeneration[waypointsForGeneration.Count-1].previousWaypoint;
+        //     waypointsForGeneration.Remove(waypointsForGeneration[waypointsForGeneration.Count-1]);
             
-        }
+        // }
 
-        AddToWaterWaypointBundleRedoStack(redoBundle);
+        // AddToWaterWaypointBundleRedoStack(redoBundle);
 
     }
 
     private void UndoWaterWaypointManipulation()
     {
-        if(waterWaypointUndoStack.Count>1)
-        {
-            AddToWaterWaypointRedoStack(waypointsForGeneration[waypointsForGeneration.Count-1]);
-            waypointsForGeneration[waypointsForGeneration.Count-2].nextWaypoint = null;
-            Destroy(waypointsForGeneration[waypointsForGeneration.Count-2].currentWaypoint.GetComponent<LineRenderer>());
-            Destroy(waypointsForGeneration[waypointsForGeneration.Count-1].currentWaypoint);
-            pastWaterWaypoint = waypointsForGeneration[waypointsForGeneration.Count-2];
-            waypointsForGeneration.RemoveAt(waypointsForGeneration.Count-1);
-            waterWaypointUndoStack.RemoveAt(waterWaypointUndoStack.Count-1);
-        }
-        else
-        {
-            AddToWaterWaypointRedoStack(waypointsForGeneration[waypointsForGeneration.Count-1]);
-            Destroy(waypointsForGeneration[waypointsForGeneration.Count-1].currentWaypoint);
-            waypointsForGeneration.RemoveAt(waypointsForGeneration.Count-1);
-            waterWaypointUndoStack.RemoveAt(waterWaypointUndoStack.Count-1);
-            pastWaterWaypoint = null;
-        }
+        //TODO REIMPLEMENT UNDO REDO
+
+
+        // if(waterWaypointUndoStack.Count>1)
+        // {
+        //     AddToWaterWaypointRedoStack(waypointsForGeneration[waypointsForGeneration.Count-1]);
+        //     waypointsForGeneration[waypointsForGeneration.Count-2].nextWaypoint = null;
+        //     Destroy(waypointsForGeneration[waypointsForGeneration.Count-2].currentWaypoint.GetComponent<LineRenderer>());
+        //     Destroy(waypointsForGeneration[waypointsForGeneration.Count-1].currentWaypoint);
+        //     pastWaterWaypoint = waypointsForGeneration[waypointsForGeneration.Count-2];
+        //     waypointsForGeneration.RemoveAt(waypointsForGeneration.Count-1);
+        //     waterWaypointUndoStack.RemoveAt(waterWaypointUndoStack.Count-1);
+        // }
+        // else
+        // {
+        //     AddToWaterWaypointRedoStack(waypointsForGeneration[waypointsForGeneration.Count-1]);
+        //     Destroy(waypointsForGeneration[waypointsForGeneration.Count-1].currentWaypoint);
+        //     waypointsForGeneration.RemoveAt(waypointsForGeneration.Count-1);
+        //     waterWaypointUndoStack.RemoveAt(waterWaypointUndoStack.Count-1);
+        //     pastWaterWaypoint = null;
+        // }
         
 
     }
@@ -993,65 +934,65 @@ public class TerrainEditor : MonoBehaviour
         texture.Apply();
     }
 
-    /// <summary>
-    /// Raises or loweres terrain at the mouse position according to the brush. 
-    /// </summary>
-    /// <param name="raise">Flag that determines if terains should be lowered or raised (True = raise) (False = lower)</param>
-    private void RaiseOrLowerTerrain(bool raise)
-    {
-        var modifier = 1;
-        if(!raise)
-        {
-            modifier = -1;
-        }
+    // /// <summary>
+    // /// Raises or loweres terrain at the mouse position according to the brush. 
+    // /// </summary>
+    // /// <param name="raise">Flag that determines if terains should be lowered or raised (True = raise) (False = lower)</param>
+    // private void RaiseOrLowerTerrain(bool raise)
+    // {
+    //     var modifier = 1;
+    //     if(!raise)
+    //     {
+    //         modifier = -1;
+    //     }
 
-        ray = Camera.main.ScreenPointToRay (Input.mousePosition);
-        if (Physics.Raycast (ray, out hit)) 
-        {
-            hitZ = Mathf.RoundToInt((hit.point - terrain.GetPosition()).z/terrain.terrainData.size.z * terrain.terrainData.heightmapResolution);
-            hitX = Mathf.RoundToInt((hit.point - terrain.GetPosition()).x/terrain.terrainData.size.x * terrain.terrainData.heightmapResolution);
-            realBrushStrength = brushStrength/250;
-            // calculate brush strenghts with compute shader
-            brushDropoffShader.SetFloat("brushWidth",brushForManipulation.width);
-            brushDropoffShader.SetFloat("brushHeight",brushForManipulation.height);
-            ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));   
-            buffer.SetData(loadedBrush);
-            int kernel = brushDropoffShader.FindKernel(brushEffect);
-            brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
-            brushDropoffShader.Dispatch(kernel,(int)Mathf.Ceil(loadedBrush.Length/64f),1,1);
-            brushLength = (int)Mathf.Ceil(loadedBrush.Length/64f);
-            buffer.GetData(computedBrush);
+    //     ray = Camera.main.ScreenPointToRay (Input.mousePosition);
+    //     if (Physics.Raycast (ray, out hit)) 
+    //     {
+    //         hitZ = Mathf.RoundToInt((hit.point - terrain.GetPosition()).z/terrain.terrainData.size.z * terrain.terrainData.heightmapResolution);
+    //         hitX = Mathf.RoundToInt((hit.point - terrain.GetPosition()).x/terrain.terrainData.size.x * terrain.terrainData.heightmapResolution);
+    //         realBrushStrength = brushStrength/250;
+    //         // calculate brush strenghts with compute shader
+    //         brushDropoffShader.SetFloat("brushWidth",brushForManipulation.width);
+    //         brushDropoffShader.SetFloat("brushHeight",brushForManipulation.height);
+    //         ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));   
+    //         buffer.SetData(loadedBrush);
+    //         int kernel = brushDropoffShader.FindKernel(brushEffect);
+    //         brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
+    //         brushDropoffShader.Dispatch(kernel,(int)Mathf.Ceil(loadedBrush.Length/64f),1,1);
+    //         brushLength = (int)Mathf.Ceil(loadedBrush.Length/64f);
+    //         buffer.GetData(computedBrush);
 
-            buffer.Dispose();
+    //         buffer.Dispose();
             
-            for(int i=0; i< computedBrush.Length;i++)
-            {
-                if(hitZ+computedBrush[i].xPos > 0 && hitX+computedBrush[i].yPos > 0 && hitZ+computedBrush[i].xPos < terrain.terrainData.heightmapResolution && hitX+computedBrush[i].yPos < terrain.terrainData.heightmapResolution)
-                {
+    //         for(int i=0; i< computedBrush.Length;i++)
+    //         {
+    //             if(hitZ+computedBrush[i].xPos > 0 && hitX+computedBrush[i].yPos > 0 && hitZ+computedBrush[i].xPos < terrain.terrainData.heightmapResolution && hitX+computedBrush[i].yPos < terrain.terrainData.heightmapResolution)
+    //             {
                     
-                    if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime < 1  )
-                    {
-                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
-                    }
-                    else
-                    {
-                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 1;
-                    }
-                    if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime > 0 )
-                    {
-                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
-                    }
-                    else
-                    {
-                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 0;
-                    }
-                }
-                loadedBrush[i].pixelBrushStrength = realBrushStrength;
-            }
-            this.terrain.terrainData.SetHeights(0,0,mesh);
-            terrainManipulationActive = true;
-        }
-    }
+    //                 if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime < 1  )
+    //                 {
+    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
+    //                 }
+    //                 else
+    //                 {
+    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 1;
+    //                 }
+    //                 if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime > 0 )
+    //                 {
+    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
+    //                 }
+    //                 else
+    //                 {
+    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 0;
+    //                 }
+    //             }
+    //             loadedBrush[i].pixelBrushStrength = realBrushStrength;
+    //         }
+    //         this.terrain.terrainData.SetHeights(0,0,mesh);
+    //         terrainManipulationActive = true;
+    //     }
+    // }
 
 
     /// <summary>
@@ -1077,927 +1018,7 @@ public class TerrainEditor : MonoBehaviour
     // -------------------------------------------------- MANIPULATION AND CALCULATIONS END -------------------------------------------------------------------------------
 
     // ----------------------------------------------------------------- WATER --------------------------------------------------------------------------------------------
-
-
-    /// <summary>
-    /// Creates a 2 triangle quad plane with the water material 
-    /// </summary>
-    /// <param name="locationX">The location on the X axis</param>
-    /// <param name="locationY">The location on the Y axis (Height)</param>
-    /// <param name="locationZ">The location on the Z axis</param>
-    /// <param name="width">Width of the plane(X)</param>
-    /// <param name="height">Height of the plane (Z)</param>
-    /// <param name="useColider">Flag that determines if the water has a colider</param>
-    /// <param name="isRiver">Flag to determine if the water is a river or ocean</param>
-    public GameObject createWaterPlane(float locationX, float locationY, float locationZ,float width, float height, bool useColider, bool isRiver)
-    {
-        // locationX = locationX - width/2f ;
-        // locationY = locationY - height/2f;
-        // locationZ = 0.1f ; // TODO CHANGE TO BE VARIABLE
-
-        GameObject plain = new GameObject("NAME"); //TODO CHANGE NAME TO DYNAMIC
-        plain.transform.position = new Vector3(locationX,locationZ,locationY);
-        MeshFilter mf = plain.AddComponent(typeof(MeshFilter)) as MeshFilter;
-        MeshRenderer mr = plain.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
-
-        Mesh plainMesh = new Mesh();
-        plainMesh.vertices = new Vector3[]
-        {
-            new Vector3(-(width/2),0,-(height/2)),
-            new Vector3((width/2),0,-(height/2)),
-            new Vector3((width/2),0,(height/2)),
-            new Vector3(-(width/2),0,(height/2))
-        };
-
-        plainMesh.uv = new Vector2[]
-        {
-            new Vector2(1,0),
-            new Vector2(1,1),
-            new Vector2(0,1),
-            new Vector2(0,0)
-        };
-
-        plainMesh.triangles = new int[]{2,1,0,3,2,0};
-
-        mf.mesh = plainMesh;
-        if(useColider == true)
-        {
-            (plain.AddComponent(typeof(MeshCollider)) as MeshCollider).sharedMesh = plainMesh;
-        }
-        
-        if(isRiver)
-        {
-            mr.material = riverMaterial;
-            mr.material.SetFloat("_WaveSpeed",0); // TODO REMOVE , Temporary while rivers dont have a custom material
-        }
-        else
-        {
-            mr.material = oceanMaterial;
-        }
-        plainMesh.RecalculateNormals();
-        plainMesh.RecalculateBounds();
-
-        return plain;
-    }
-
-    /// <summary>
-    /// Creates a 2 triangle quad plane with variying vertice heights with the water material 
-    /// </summary>
-    /// <param name="locationX">The location on the X axis</param>
-    /// <param name="locationY">The location on the Y axis (Height)</param>
-    /// <param name="locationZ">The location on the Z axis</param>
-    /// <param name="width">Width of the plane(X)</param>
-    /// <param name="length">Height of the plane (Z)</param>
-    /// <param name="useColider">Flag that determines if the water has a colider</param>
-    /// <param name="isRiver">Flag to determine if the water is a river or ocean</param>
-    public GameObject createCustomWaterPlane(float locationX, float locationY, float locationZ,float width, float length, bool useColider, bool isRiver, float[] cornerHeightArray)
-    {
-        // locationX = locationX - width/2f ;
-        // locationY = locationY - height/2f;
-        // locationZ = 0.1f ; // TODO CHANGE TO BE VARIABLE
-        // Debug.Log(" Location X: "+ locationX+" location Z : "+ locationZ+" location Y: "+ locationY+" cornerHeightArray[0]: "+ cornerHeightArray[0]+" cornerHeightArray[1]: "+ cornerHeightArray[1]+" cornerHeightArray[2]: "+ cornerHeightArray[2]+" cornerHeightArray[3]: "+ cornerHeightArray[3]);
-
-
-        GameObject plain = new GameObject("NAME"); //TODO CHANGE NAME TO DYNAMIC
-        plain.transform.position = new Vector3(locationX,locationZ,locationY);
-        MeshFilter mf = plain.AddComponent(typeof(MeshFilter)) as MeshFilter;
-        MeshRenderer mr = plain.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
-
-        Mesh plainMesh = new Mesh();
-        plainMesh.vertices = new Vector3[]
-        {
-            new Vector3(-(width/2),cornerHeightArray[0],-(length/2)),
-            new Vector3((width/2),cornerHeightArray[1],-(length/2)),
-            new Vector3((width/2),cornerHeightArray[2],(length/2)),
-            new Vector3(-(width/2),cornerHeightArray[3],(length/2)),
-            new Vector3(0,0,0),
-
-        };
-
-        plainMesh.uv = new Vector2[]
-        {
-            new Vector2(1,0),
-            new Vector2(1,1),
-            new Vector2(0,1),
-            new Vector2(0,0),
-            new Vector2(0.5f,0.5f)
-        };
-
-        //plainMesh.triangles = new int[]{2,1,0,3,2,0};
-        plainMesh.triangles = new int[]{3,2,4,2,1,4,1,0,4,0,3,4};
-
-        mf.mesh = plainMesh;
-        if(useColider == true)
-        {
-            (plain.AddComponent(typeof(MeshCollider)) as MeshCollider).sharedMesh = plainMesh;
-        }
-        
-        if(isRiver)
-        {
-            mr.material = riverMaterial;
-            mr.material.SetFloat("_WaveSpeed",0); // TODO REMOVE , Temporary while rivers dont have a custom material
-        }
-        else
-        {
-            mr.material = oceanMaterial;
-        }
-        plainMesh.RecalculateNormals();
-        plainMesh.RecalculateBounds();
-
-        return plain;
-    }
-
-
-    /// <summary>
-    /// Combines multiple game objects into one (efectively creates a new meged mesh into a new object and deletes the existing objects)
-    /// </summary>
-    /// <param name="mergeObjects">List of all the objects whose meshes need to be merged</param>
-    private GameObject combineMeshes(List<GameObject> mergeObjects )
-    {
-         CombineInstance[] combine = new CombineInstance[mergeObjects.Count];
-
-        int i = 0;
-        while (i < mergeObjects.Count)
-        {
-            combine[i].mesh = mergeObjects[i].GetComponent<MeshFilter>().sharedMesh;
-            combine[i].transform = mergeObjects[i].transform.localToWorldMatrix;
-            mergeObjects[i].gameObject.SetActive(false);
-
-            i++;
-        }
-       
-        Mesh mesh = new Mesh();
-        mesh.CombineMeshes(combine);
-        GameObject combinedMesh = new GameObject("CombinedWater"); // TODO make the name dynamic
-        MeshFilter mf = combinedMesh.AddComponent(typeof(MeshFilter)) as MeshFilter;
-        MeshRenderer mr = combinedMesh.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
-        mr.material = mergeObjects[0].GetComponent<MeshRenderer>().material;
-
-        combinedMesh.GetComponent<MeshFilter>().sharedMesh = mesh;
-        combinedMesh.gameObject.SetActive(true);
-
-        for(int j =0;j<mergeObjects.Count;j++)
-        {
-            Destroy(mergeObjects[j]);
-        }
-        return combinedMesh;
-    }
     
-
-    private void populateWaterGrid(ref WaterGrid gridForGeneration, float precision)
-    {
-        WaterWaypoint waypointForEvaluation = gridForGeneration.startingWaypoint;
-        while(waypointForEvaluation.nextWaypoint != null)
-        {
-            float distanceBetweenWaypoints = Mathf.Ceil(Vector3.Distance(waypointForEvaluation.currentWaypoint.transform.position,waypointForEvaluation.nextWaypoint.currentWaypoint.transform.position));
-
-            // Debug.Log("Angle between water line 1 and 2: ");
-            // Debug.Log(Vector3.Angle(waypointForEvaluation.lookVector,waypointForEvaluation.nextWaypoint.lookVector));
-            
-            
-            for(float j = 0; j< distanceBetweenWaypoints;j+=precision)
-            {
-                float posX = waypointForEvaluation.currentWaypoint.transform.position.x+j*(waypointForEvaluation.lookVector.normalized.x);
-                float posY = waypointForEvaluation.currentWaypoint.transform.position.y+j*(waypointForEvaluation.lookVector.normalized.y);
-                float posZ = waypointForEvaluation.currentWaypoint.transform.position.z+j*(waypointForEvaluation.lookVector.normalized.z);
-
-                // Debug.Log("posY: " + posY);
-                // Debug.Log("waypointForEvaluation.lookVector: " + waypointForEvaluation.lookVector);
-                // Debug.Log("waypointForEvaluation.lookVector.normalized.y: " + waypointForEvaluation.lookVector.normalized.y);
-                // Debug.Log("waypointForEvaluation.currentWaypoint.transform.position.y: " + waypointForEvaluation.currentWaypoint.transform.position.y);
-                // Debug.Log("Y position at step: "+j+ " is : " + posY);
-                // Debug.Log("posZ: " + posZ);
-
-                // Vector3 startingWaypointSquarePos = new Vector3(Mathf.Round(posX-gridForGeneration.originPosition.x),0,Mathf.Round(posZ-gridForGeneration.originPosition.z));
-                int squareIdX = Mathf.RoundToInt(posX-gridForGeneration.originPosition.x);
-                int squareIdZ = Mathf.RoundToInt(posZ-gridForGeneration.originPosition.z);
-
-                // if(gridForGeneration.squareMatrix[squareIdX][squareIdZ].renderMesh == false)
-                // {
-                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].renderMesh = true;
-                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownLeft.position.y = posY;
-                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeDownRight.position.y = posY;
-                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpLeft.position.y = posY;
-                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].edgeUpRight.position.y = posY;
-                //     gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.y = posY;
-                // }
-
-                RaycastHit distanceRay;
-                int distanceToLeft = 0;
-                int distanceToRight = 0;
-                Vector3 traceOrigin = new Vector3(posX,posY,posZ);
-                Vector3 rightLookVector;
-                Vector3 leftLookVector;
-                
-
-                if(Physics.Raycast(traceOrigin, Quaternion.AngleAxis(-90, Vector3.up) * waypointForEvaluation.yLockedLookVector , out distanceRay))
-                {
-                    // Debug.Log("Left distance between points: "+ Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point)));
-                    distanceToLeft = Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point));     
-                    leftLookVector = distanceRay.point - traceOrigin;
-                };
-
-                if(Physics.Raycast(traceOrigin, Quaternion.AngleAxis(90, Vector3.up) * waypointForEvaluation.yLockedLookVector, out distanceRay))
-                {
-                    // Debug.Log("Right distance between points: "+ Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point)));
-                    distanceToRight = Mathf.CeilToInt(Vector3.Distance(traceOrigin,distanceRay.point));
-                    rightLookVector = distanceRay.point - traceOrigin;
-
-                    // Debug.Log("right point: "+distanceRay.point);
-                };
-                // Debug.Log("Processing square X: "+(gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.x)+" Y: "+ (gridForGeneration.squareMatrix[squareIdX][squareIdZ].position.z)+" "+ distanceToLeft+" "+distanceToRight);
-
-                for (float i = precision; i< distanceToLeft;i+=precision)
-                {
-                    var lookVectorRotatedLeft = Quaternion.AngleAxis(-90, Vector3.up) * waypointForEvaluation.yLockedLookVector;
-                    
-                    float subPosX = posX+i*(lookVectorRotatedLeft.normalized.x);
-                    float subPosY = posY+i*(lookVectorRotatedLeft.normalized.y);
-                    float subPosZ = posZ+i*(lookVectorRotatedLeft.normalized.z);
-
-                    int subSquareIdX = Mathf.RoundToInt(subPosX-gridForGeneration.originPosition.x);
-                    int subSquareIdZ = Mathf.RoundToInt(subPosZ-gridForGeneration.originPosition.z);
-
-                    if(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh == false)
-                    {
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh = true;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].position.y = posY;
-                    }
-                }
-            
-                for (float i = precision; i< distanceToRight;i+=precision)
-                {
-
-                    var lookVectorRotatedRight = Quaternion.AngleAxis(90, Vector3.up)*waypointForEvaluation.yLockedLookVector;
-
-
-
-                    float subPosX = posX+i*(lookVectorRotatedRight.normalized.x);
-                    float subPosY = posY+i*(lookVectorRotatedRight.normalized.y);
-                    float subPosZ = posZ+i*(lookVectorRotatedRight.normalized.z);
-
-                    int subSquareIdX = Mathf.RoundToInt(subPosX-gridForGeneration.originPosition.x);
-                    int subSquareIdZ = Mathf.RoundToInt(subPosZ-gridForGeneration.originPosition.z);
-                    
-
-                    if(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh == false)
-                    {
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh = true;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.position.y = posY;
-                        gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].position.y = posY;
-
-                    }
-                }
-                
-            }
-
-            if(waypointForEvaluation.nextWaypoint != null && waypointForEvaluation.previousWaypoint != null)
-            {
-                 // Calculate the two vectors representing the lines from pointA to pointB and from pointC to pointB.
-                Vector3 vectorAB = (waypointForEvaluation.currentWaypoint.transform.position - waypointForEvaluation.previousWaypoint.currentWaypoint.transform.position).normalized;
-                Vector3 vectorCB = (waypointForEvaluation.currentWaypoint.transform.position - waypointForEvaluation.nextWaypoint.currentWaypoint.transform.position).normalized;
-
-                // Calculate the cross product to determine the rotation direction (clockwise or counter-clockwise).
-                Vector3 cross = Vector3.Cross(vectorAB, vectorCB);
-                float angle = Vector3.Angle(vectorAB, vectorCB) * (cross.y < 0 ? -1 : 1);
-
-                // Find the central point where the lines connect.
-                Vector3 centralPoint = waypointForEvaluation.currentWaypoint.transform.position;
-
-                // Cast rays from the central point for every degree of the angle.
-                for (float degree = 0f; Mathf.Abs(degree) <= Mathf.Abs(angle); degree += Mathf.Sign(angle))
-                {
-                    // Calculate the direction of the ray.
-                    Quaternion rotation = Quaternion.AngleAxis(degree, Vector3.up);
-                    Vector3 rayDirection = rotation * vectorAB;
-
-                    // Set the y-component of the rayDirection to 0 to cast rays in the XZ plane.
-                    rayDirection.y = 0f;
-
-                    // Cast the ray and measure the distance to the terrain.
-                    Ray ray = new Ray(new Vector3(centralPoint.x, waypointForEvaluation.currentWaypoint.transform.position.y, centralPoint.z), rayDirection);
-                    RaycastHit hit;
-
-                    if (Physics.Raycast(ray, out hit))
-                    {
-                        // Debug.DrawRay(ray.origin, rayDirection * hit.distance, Color.green, 60f);
-                        // Debug.Log("Hit distance: " + hit.distance);
-                        for (float i = precision; i< hit.distance;i+=precision)
-                        {
-                            var lookVectorRotatedLeft = rayDirection;
-                            
-                            float subPosX = waypointForEvaluation.currentWaypoint.transform.position.x + i*(lookVectorRotatedLeft.normalized.x);
-                            float subPosY = waypointForEvaluation.currentWaypoint.transform.position.y + i*(lookVectorRotatedLeft.normalized.y);
-                            float subPosZ = waypointForEvaluation.currentWaypoint.transform.position.z + i*(lookVectorRotatedLeft.normalized.z);
-
-                            int subSquareIdX = Mathf.RoundToInt(subPosX-gridForGeneration.originPosition.x);
-                            int subSquareIdZ = Mathf.RoundToInt(subPosZ-gridForGeneration.originPosition.z);
-
-                            if(gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh == false)
-                            {
-                                gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].renderMesh = true;
-                                gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownLeft.position.y = waypointForEvaluation.currentWaypoint.transform.position.y;
-                                gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeDownRight.position.y = waypointForEvaluation.currentWaypoint.transform.position.y;
-                                gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpLeft.position.y = waypointForEvaluation.currentWaypoint.transform.position.y;
-                                gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].edgeUpRight.position.y = waypointForEvaluation.currentWaypoint.transform.position.y;
-                                gridForGeneration.squareMatrix[subSquareIdX][subSquareIdZ].position.y = waypointForEvaluation.currentWaypoint.transform.position.y;
-                            }
-                        }
-                    }
-                }
-            }
-
-            
-           
-
-
-            waypointForEvaluation = waypointForEvaluation.nextWaypoint;
-        }
-
-    }
-
-    private void CalculateWaterGridHeights(ref WaterGrid gridForGeneration)
-    {
-        int vertexCount;
-        WaterSquare[] squaresForProcessing;
-        float vertexHeightValue;
-        bool[] squareActiveStatus;
-        for(int i=0; i<gridForGeneration.squareMatrix.Length;i++)
-        {
-            for(int j=0; j<gridForGeneration.squareMatrix[0].Length;j++)
-            {
-                if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
-                {
-                    if(gridForGeneration.squareMatrix[i][j].edgeUpRight.isCalculated == false)
-                    {
-                        if(gridForGeneration.squareMatrix[i+1][j+1].renderMesh == false)
-                        {
-                            if(!((i+1)>gridForGeneration.squareMatrix.Length) && !((j+1)> gridForGeneration.squareMatrix[0].Length))
-                            {
-                                
-
-                                vertexCount = 3;
-                                squaresForProcessing = new WaterSquare[vertexCount];
-                                squareActiveStatus = new bool[vertexCount];
-                                squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
-                                if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
-                                {
-                                    squareActiveStatus[0] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[0] = false; 
-                                }
-                                squaresForProcessing[1] = gridForGeneration.squareMatrix[i+1][j];
-                                if(gridForGeneration.squareMatrix[i+1][j].renderMesh == true)
-                                {
-                                    squareActiveStatus[1] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[1] = false; 
-                                }
-
-                                squaresForProcessing[2] = gridForGeneration.squareMatrix[i][j+1];
-                                if(gridForGeneration.squareMatrix[i][j+1].renderMesh == true)
-                                {
-                                    squareActiveStatus[2] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[2] = false; 
-                                }
-
-                                vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,true,true);
-
-                                gridForGeneration.squareMatrix[i][j].edgeUpRight.position.y = vertexHeightValue;
-                                gridForGeneration.squareMatrix[i+1][j].edgeUpLeft.position.y = vertexHeightValue;
-                                gridForGeneration.squareMatrix[i][j+1].edgeDownRight.position.y = vertexHeightValue;
-
-
-                                gridForGeneration.squareMatrix[i][j].edgeUpRight.isCalculated = true;
-                                gridForGeneration.squareMatrix[i+1][j].edgeUpLeft.isCalculated = true;
-                                gridForGeneration.squareMatrix[i][j+1].edgeDownRight.isCalculated = true;
-                            }
-                        }
-                    }
-
-                    if(gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated == false)
-                    {                          
-                        if(i-1 < 0)
-                        {   
-                            if(j-1>0)
-                            {
-                                vertexCount = 2;
-                                squareActiveStatus = new bool[vertexCount];
-                                squaresForProcessing = new WaterSquare[vertexCount];
-                                squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
-                                squaresForProcessing[1] = gridForGeneration.squareMatrix[i][j-1];
-
-                                if(gridForGeneration.squareMatrix[i][j].renderMesh)
-                                {
-                                    squareActiveStatus[0] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[0] = false; 
-                                }
-                                if(gridForGeneration.squareMatrix[i][j-1].renderMesh)
-                                {
-                                    squareActiveStatus[1] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[1] = false; 
-                                }
-
-                                vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,true,false);
-
-                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y = vertexHeightValue;
-                                gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.position.y = vertexHeightValue;
-
-                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated = true;
-                                gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.isCalculated = true;
-                            }
-                        }
-                        else if(j-1 <0)
-                        {
-                            if(i-1>0)
-                            {
-                                vertexCount = 2;
-                                squaresForProcessing = new WaterSquare[vertexCount];
-                                squareActiveStatus = new bool[vertexCount];
-                                squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
-                                squaresForProcessing[1] = gridForGeneration.squareMatrix[i-1][j];
-
-                                if(gridForGeneration.squareMatrix[i][j].renderMesh)
-                                {
-                                    squareActiveStatus[0] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[0] = false; 
-                                }
-                                if(gridForGeneration.squareMatrix[i-1][j].renderMesh)
-                                {
-                                    squareActiveStatus[1] = true; 
-                                }
-                                else
-                                {
-                                    squareActiveStatus[1] = false; 
-                                }
-
-                                vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,false,false);
-
-                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y = vertexHeightValue;
-                                gridForGeneration.squareMatrix[i-1][j].edgeDownRight.position.y = vertexHeightValue;
-
-                                gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated = true;
-                                gridForGeneration.squareMatrix[i-1][j].edgeDownRight.isCalculated = true;
-                            }
-                        }
-                        else
-                        {
-                            vertexCount = 4;
-                            squaresForProcessing = new WaterSquare[vertexCount];
-                            squareActiveStatus = new bool[vertexCount];
-                            squaresForProcessing[0] = gridForGeneration.squareMatrix[i][j];
-                            if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
-                            {
-                                squareActiveStatus[0] = true; 
-                            }
-                            else
-                            {
-                                squareActiveStatus[0] = false; 
-                            }
-                            squaresForProcessing[1] = gridForGeneration.squareMatrix[i][j-1];
-                            if(gridForGeneration.squareMatrix[i][j-1].renderMesh == true)
-                            {
-                                squareActiveStatus[1] = true; 
-                            }
-                            else
-                            {
-                                squareActiveStatus[1] = false; 
-                            }
-                            squaresForProcessing[2] = gridForGeneration.squareMatrix[i-1][j-1];
-                            if(gridForGeneration.squareMatrix[i-1][j-1].renderMesh == true)
-                            {
-                                squareActiveStatus[2] = true; 
-                            }
-                            else
-                            {
-                                squareActiveStatus[2] = false; 
-                            }
-                            squaresForProcessing[3] = gridForGeneration.squareMatrix[i-1][j];
-                            if(gridForGeneration.squareMatrix[i-1][j].renderMesh == true)
-                            {
-                                squareActiveStatus[3] = true; 
-                            }
-                            else
-                            {
-                                squareActiveStatus[3] = false; 
-                            }
-
-                            vertexHeightValue = averageEdgeHeightPerVertex(squaresForProcessing,squareActiveStatus,true,false);
-
-                            gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y = vertexHeightValue;
-                            gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.position.y = vertexHeightValue;
-                            gridForGeneration.squareMatrix[i-1][j-1].edgeUpRight.position.y = vertexHeightValue;
-                            gridForGeneration.squareMatrix[i-1][j].edgeDownRight.position.y = vertexHeightValue;
-
-
-                            gridForGeneration.squareMatrix[i][j].edgeDownLeft.isCalculated = true;
-                            gridForGeneration.squareMatrix[i][j-1].edgeUpLeft.isCalculated = true;
-                            gridForGeneration.squareMatrix[i-1][j-1].edgeUpRight.isCalculated = true;
-                            gridForGeneration.squareMatrix[i-1][j].edgeDownRight.isCalculated = true;
-                        }
-                        
-                    }
-                }
-            }
-        }
-    }
-
-    private void GenerateWaterFromWaterGrid(WaterGrid gridForGeneration)
-    {
-        List<GameObject> meshes = new List<GameObject>();
-        for(int i=0; i<gridForGeneration.squareMatrix.Length;i++)
-        {
-            for(int j=0; j<gridForGeneration.squareMatrix[0].Length;j++)
-            {
-                if(gridForGeneration.squareMatrix[i][j].renderMesh == true)
-                {
-                    float[] heightArray = {gridForGeneration.squareMatrix[i][j].edgeDownLeft.position.y-gridForGeneration.squareMatrix[i][j].position.y,
-                    gridForGeneration.squareMatrix[i][j].edgeDownRight.position.y-gridForGeneration.squareMatrix[i][j].position.y,
-                    gridForGeneration.squareMatrix[i][j].edgeUpRight.position.y-gridForGeneration.squareMatrix[i][j].position.y,
-                    gridForGeneration.squareMatrix[i][j].edgeUpLeft.position.y-gridForGeneration.squareMatrix[i][j].position.y};
-                    
-                    float[] heightArrayDefault = {0,0,0,0};
-
-                    meshes.Add(createCustomWaterPlane(gridForGeneration.squareMatrix[i][j].position.x,gridForGeneration.squareMatrix[i][j].position.z,gridForGeneration.squareMatrix[i][j].position.y,1,1,true,true,heightArray));
-                }
-            }
-        }
-        GameObject combinedWater = combineMeshes(meshes);
-    }
-
-    private float averageEdgeHeightPerVertex( WaterSquare[] squaresForProcessing, bool[] squareActiveStatus, bool vertical, bool topRightStitch)
-    {
-        float finalHeight=0f;
-        int numOfSquares=0;
-        if(topRightStitch == true)
-        {
-            if(squaresForProcessing.Length == 3)
-            {
-                if (squareActiveStatus[0] == true)
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[0].edgeUpRight.position.y;
-                }
-                if (squareActiveStatus[1] == true)
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
-                }
-                if (squareActiveStatus[2] == true )
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[2].edgeDownRight.position.y;
-                }
-                finalHeight = finalHeight/numOfSquares;
-            }
-            else
-            {
-                if(vertical)
-                {
-                    if (squareActiveStatus[0] == true)
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[0].edgeUpRight.position.y;
-                    }
-                    if (squareActiveStatus[1] == true)
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[1].edgeDownRight.position.y;
-                    }
-                    finalHeight = finalHeight/numOfSquares;
-                }
-                else
-                {
-                    if (squareActiveStatus[0] == true)
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[0].edgeUpRight.position.y;
-                    }
-                    if (squareActiveStatus[1] == true)
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
-                    }
-                    finalHeight = finalHeight/numOfSquares;
-                }
-            }
-        }
-        else
-        {
-            if(squaresForProcessing.Length == 4)
-            {
-                if (squareActiveStatus[0] == true)
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[0].edgeDownLeft.position.y;
-                }
-                if (squareActiveStatus[1] == true)
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
-                }
-                if (squareActiveStatus[2] == true )
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[2].edgeUpRight.position.y;
-                }
-                if (squareActiveStatus[3] == true)
-                {
-                    numOfSquares++;
-                    finalHeight += squaresForProcessing[3].edgeDownRight.position.y;
-                }
-                finalHeight = finalHeight/numOfSquares;
-            }
-            else
-            {
-                if(vertical)
-                {
-                    if (squareActiveStatus[0])
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[0].edgeDownLeft.position.y;
-                    }
-                    if (squareActiveStatus[1])
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[1].edgeUpLeft.position.y;
-                    }
-                    finalHeight = finalHeight/numOfSquares;
-                }
-                else
-                {
-                    if (squareActiveStatus[0])
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[0].edgeDownLeft.position.y;
-                    }
-                    if (squareActiveStatus[1])
-                    {
-                        numOfSquares++;
-                        finalHeight += squaresForProcessing[1].edgeDownRight.position.y;
-                    }
-                    finalHeight = finalHeight/numOfSquares;
-                }
-            }
-        }
-        
-
-        return finalHeight;
-    }
-
-    private float[][] averageEdgeHeight( WaterSquare squareForAverageCentral, WaterSquare squareForAverageOutside, int xOffset, int zOffset)
-    {
-        float cornerOne = 0f;
-        float cornerTwo = 0f;
-
-        float[][] returnHeightTotal= new float[2][];
-
-        switch((xOffset, zOffset,squareForAverageOutside.renderMesh))
-        {
-            case(-1,-1,true):
-                // bottom left / top right 
-                cornerOne = (squareForAverageOutside.edgeUpRight.position.y+squareForAverageCentral.edgeDownLeft.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(cornerOne,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
-                returnHeightTotal[1] = MakeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,cornerOne,squareForAverageOutside.edgeUpLeft.position.y);
-
-                return returnHeightTotal;
-
-
-            case(0,-1,true):
-                // bottom right, bottom left / top right, top left
-
-                cornerOne = (squareForAverageOutside.edgeUpRight.position.y+squareForAverageCentral.edgeDownRight.position.y) / 2f;
-                cornerTwo = (squareForAverageOutside.edgeUpLeft.position.y+squareForAverageCentral.edgeDownLeft.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(cornerTwo,cornerOne,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
-                returnHeightTotal[1] = MakeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,cornerOne,cornerTwo);
-                
-                return returnHeightTotal;
-
-
-            case(1,-1,true):
-                // bottom right /top left 
-                cornerOne = (squareForAverageOutside.edgeUpLeft.position.y+squareForAverageCentral.edgeDownRight.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,cornerOne,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
-                returnHeightTotal[1] = MakeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,cornerOne);
-
-                return returnHeightTotal;
-
-
-            case(-1,0,true):
-                // top left bottom left / top right bottom right
-
-                cornerOne = (squareForAverageOutside.edgeUpRight.position.y+squareForAverageCentral.edgeUpLeft.position.y) /2f;
-                cornerTwo = (squareForAverageOutside.edgeDownRight.position.y+squareForAverageCentral.edgeDownLeft.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(cornerTwo,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,cornerOne);
-                returnHeightTotal[1] = MakeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,cornerTwo,cornerOne,squareForAverageOutside.edgeUpLeft.position.y);
-
-                return returnHeightTotal;
-
-            case(0,0,true):
-                // ignore
-            break;
-
-            case(1,0,true):
-                // top right bottom right / top left bottom left
-
-                cornerOne = (squareForAverageOutside.edgeUpLeft.position.y+squareForAverageCentral.edgeUpRight.position.y) /2f;
-                cornerTwo = (squareForAverageOutside.edgeDownLeft.position.y+squareForAverageCentral.edgeDownRight.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,cornerTwo,cornerOne,squareForAverageCentral.edgeUpLeft.position.y);
-                returnHeightTotal[1] = MakeHieghtArray(cornerTwo,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,cornerOne);
-
-                return returnHeightTotal;
-
-            case(-1,1,true):
-                //  top left / bottom right 
-
-                cornerOne = (squareForAverageOutside.edgeDownRight.position.y+squareForAverageCentral.edgeUpLeft.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,cornerOne);
-                returnHeightTotal[1] = MakeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,cornerOne,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
-
-                return returnHeightTotal;
-
-            case(0,1,true):
-                // top left top right / bottom left  bottom right 
-
-                cornerOne = (squareForAverageOutside.edgeDownLeft.position.y+squareForAverageCentral.edgeUpLeft.position.y) /2f;
-                cornerTwo = (squareForAverageOutside.edgeDownRight.position.y+squareForAverageCentral.edgeUpRight.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,cornerTwo,cornerOne);
-                returnHeightTotal[1] = MakeHieghtArray(cornerOne,cornerTwo,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
-
-                return returnHeightTotal;
-
-            case(1,1,true):
-                //  top right / bottom left
-
-                cornerOne = (squareForAverageOutside.edgeDownLeft.position.y+squareForAverageCentral.edgeUpRight.position.y) /2f;
-
-                returnHeightTotal[0] = MakeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,cornerOne,squareForAverageCentral.edgeUpLeft.position.y);
-                returnHeightTotal[1] = MakeHieghtArray(cornerOne,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
-
-                return returnHeightTotal;
-            default:
-                Debug.Log("Borked!!!");
-
-                returnHeightTotal[0] = MakeHieghtArray(squareForAverageCentral.edgeDownLeft.position.y,squareForAverageCentral.edgeDownRight.position.y,squareForAverageCentral.edgeUpRight.position.y,squareForAverageCentral.edgeUpLeft.position.y);
-                returnHeightTotal[1] = MakeHieghtArray(squareForAverageOutside.edgeDownLeft.position.y,squareForAverageOutside.edgeDownRight.position.y,squareForAverageOutside.edgeUpRight.position.y,squareForAverageOutside.edgeUpLeft.position.y);
-
-                return returnHeightTotal;
-        }
-        return null;
-    }
-
-    private float[] MakeHieghtArray(float cornerOne, float cornerTwo, float cornerThree, float cornerFour)
-    {
-        float[] returnArray = new float[4];
-        returnArray[0] = cornerTwo;
-        returnArray[1] = cornerOne;
-        returnArray[2] = cornerThree;
-        returnArray[3] = cornerFour;
-
-        return returnArray;
-    }
-
-    
-    private WaterGrid generateVerticeArray(WaterWaypoint waypoint)
-    {
-        float maxWidth = waypoint.currentWaypoint.transform.position.x;
-        float minWidth = waypoint.currentWaypoint.transform.position.x;
-        float maxLength = waypoint.currentWaypoint.transform.position.z;
-        float minLength = waypoint.currentWaypoint.transform.position.z;
-
-        WaterGrid returnGrid = new WaterGrid();
-        returnGrid.startingWaypoint = waypoint;
-
-        WaterWaypoint minXWaypoint = waypoint;
-        WaterWaypoint minYWaypoint = waypoint;
-
-        while (waypoint != null)
-        {
-            // Debug.Log("Processing waypoint: ");
-            if(maxWidth < waypoint.currentWaypoint.transform.position.x)
-            {
-                maxWidth = waypoint.currentWaypoint.transform.position.x;
-            }
-            else if (minWidth > waypoint.currentWaypoint.transform.position.x)
-            {
-                minWidth = waypoint.currentWaypoint.transform.position.x;
-                minXWaypoint = waypoint;
-            }
-
-            if(maxLength < waypoint.currentWaypoint.transform.position.z)
-            {
-                maxLength = waypoint.currentWaypoint.transform.position.z;
-            }
-            else if (minLength > waypoint.currentWaypoint.transform.position.z)
-            {
-                minYWaypoint = waypoint;
-                minLength = waypoint.currentWaypoint.transform.position.z;
-            }
-            
-            waypoint = waypoint.nextWaypoint;
-        }
-       
-        int arrayX = Mathf.CeilToInt(maxWidth)-Mathf.CeilToInt(minWidth)+40;
-        int arrayY = Mathf.CeilToInt(maxLength)-Mathf.CeilToInt(minLength)+40;
-
-
-        Vector3 gridStartingLocation = new Vector3(minXWaypoint.currentWaypoint.transform.position.x-20, 0, minYWaypoint.currentWaypoint.transform.position.z-20);
-        Vector3 startingWaypointSquarePos = new Vector3(Mathf.Round(returnGrid.startingWaypoint.currentWaypoint.transform.position.x-gridStartingLocation.x),0,Mathf.Round(returnGrid.startingWaypoint.currentWaypoint.transform.position.z-gridStartingLocation.z));
-
-
-        WaterSquare[][] squareMatrix = new WaterSquare[arrayX][];
-        for (int i = 0; i < arrayX;i++)
-        {
-            squareMatrix[i] = new WaterSquare[arrayY];
-            for (int j = 0; j < arrayY;j++)
-            {
-                squareMatrix[i][j] = new WaterSquare();
-                squareMatrix[i][j].gridId = new Vector2(i,j);
-                squareMatrix[i][j].position = new Vector3(gridStartingLocation.x+i,0,gridStartingLocation.z+j);
-                squareMatrix[i][j].edgeDownLeft.position = new Vector3(squareMatrix[i][j].position.x-0.5f,0,squareMatrix[i][j].position.z-0.5f);
-                squareMatrix[i][j].edgeDownRight.position = new Vector3(squareMatrix[i][j].position.x+0.5f,0,squareMatrix[i][j].position.z-0.5f);
-                squareMatrix[i][j].edgeUpLeft.position = new Vector3(squareMatrix[i][j].position.x-0.5f,0,squareMatrix[i][j].position.z+0.5f);
-                squareMatrix[i][j].edgeUpRight.position = new Vector3(squareMatrix[i][j].position.x+0.5f,0,squareMatrix[i][j].position.z+0.5f);
-                squareMatrix[i][j].renderMesh = false;
-            }
-        }
-
-        returnGrid.startWaypointSquare = squareMatrix[Mathf.RoundToInt(startingWaypointSquarePos.x)][Mathf.RoundToInt(startingWaypointSquarePos.z)];
-        returnGrid.originPosition = gridStartingLocation;
-
-
-        returnGrid.squareMatrix = squareMatrix;
-        return returnGrid;
-    }
-
-    
-    
-    
-    private WaterWaypoint CreateWaypointSingle(float height) //TODO in dev
-    {
-        ray = Camera.main.ScreenPointToRay (Input.mousePosition);
-        if (Physics.Raycast (ray, out hit)) 
-        {
-            float mouseX = hit.point.x;
-            float mouseY = hit.point.y;
-            float mouseZ = hit.point.z;
-
-            // Debug.Log("x"+mouseX);
-            // Debug.Log("y"+mouseY);
-            // Debug.Log("z"+mouseZ);
-
-            GameObject waterStartWaypoint = Instantiate(waterWaypointObject, new Vector3(0,0,0),Quaternion.identity);
-            waterStartWaypoint.GetComponent<MeshFilter>().mesh = meshGenerator.generateArrowMesh();
-            waterStartWaypoint.transform.position = new Vector3(mouseX,height,mouseZ);
-
-            WaterWaypoint waypoint = new WaterWaypoint(null,waterStartWaypoint,null);
-            // Debug.Log(waypoint.currentWaypoint);
-            // Debug.Log(waypoint.nextWaypoint);
-            waypointsForGeneration.Add(waypoint);
-            return waypoint;
-            
-        }
-        return null;
-    }
-
-    private void ClearWaypoints()
-    {
-        foreach(WaterWaypoint waypoint in waypointsForGeneration)
-        {
-            Destroy(waypoint.currentWaypoint);
-        }
-        waypointsForGeneration.Clear();
-    }
 
     // --------------------------------------------------------------- WATER END-------------------------------------------------------------------------------------------
 }

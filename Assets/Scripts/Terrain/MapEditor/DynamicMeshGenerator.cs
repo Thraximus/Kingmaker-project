@@ -133,4 +133,113 @@ public class DynamicMeshGenerator: MonoBehaviour
 
         return plain;
     }
+
+    /// <summary>
+    /// Creates a 2 triangle quad plane with the water material 
+    /// </summary>
+    /// <param name="locationX">The location on the X axis</param>
+    /// <param name="locationY">The location on the Y axis (Height)</param>
+    /// <param name="locationZ">The location on the Z axis</param>
+    /// <param name="width">Width of the plane(X)</param>
+    /// <param name="height">Height of the plane (Z)</param>
+    /// <param name="useColider">Flag that determines if the water has a colider</param>
+    /// <param name="isRiver">Flag to determine if the water is a river or ocean</param>
+    public GameObject createWaterPlane(float locationX, float locationY, float locationZ,float width, float height, bool useColider, bool isRiver)
+    {
+        // locationX = locationX - width/2f ;
+        // locationY = locationY - height/2f;
+        // locationZ = 0.1f ; // TODO CHANGE TO BE VARIABLE
+
+        GameObject plain = new GameObject("NAME"); //TODO CHANGE NAME TO DYNAMIC
+        plain.transform.position = new Vector3(locationX,locationZ,locationY);
+        MeshFilter mf = plain.AddComponent(typeof(MeshFilter)) as MeshFilter;
+        MeshRenderer mr = plain.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
+
+        Mesh plainMesh = new Mesh();
+        plainMesh.vertices = new Vector3[]
+        {
+            new Vector3(-(width/2),0,-(height/2)),
+            new Vector3((width/2),0,-(height/2)),
+            new Vector3((width/2),0,(height/2)),
+            new Vector3(-(width/2),0,(height/2))
+        };
+
+        plainMesh.uv = new Vector2[]
+        {
+            new Vector2(1,0),
+            new Vector2(1,1),
+            new Vector2(0,1),
+            new Vector2(0,0)
+        };
+
+        plainMesh.triangles = new int[]{2,1,0,3,2,0};
+
+        mf.mesh = plainMesh;
+        if(useColider == true)
+        {
+            (plain.AddComponent(typeof(MeshCollider)) as MeshCollider).sharedMesh = plainMesh;
+        }
+        
+        if(isRiver)
+        {
+            mr.material = riverMaterial;
+            mr.material.SetFloat("_WaveSpeed",0); // TODO REMOVE , Temporary while rivers dont have a custom material
+        }
+        else
+        {
+            mr.material = oceanMaterial;
+        }
+        plainMesh.RecalculateNormals();
+        plainMesh.RecalculateBounds();
+
+        return plain;
+    }
+
+    /// <summary>
+    /// Creates a 2 triangle quad plane with variying vertice heights with the water material 
+    /// </summary>
+    /// <param name="locationX">The location on the X axis</param>
+    /// <param name="locationY">The location on the Y axis (Height)</param>
+    /// <param name="locationZ">The location on the Z axis</param>
+    /// <param name="width">Width of the plane(X)</param>
+    /// <param name="length">Height of the plane (Z)</param>
+    /// <param name="useColider">Flag that determines if the water has a colider</param>
+    /// <param name="isRiver">Flag to determine if the water is a river or ocean</param>
+    
+
+
+    /// <summary>
+    /// Combines multiple game objects into one (efectively creates a new meged mesh into a new object and deletes the existing objects)
+    /// </summary>
+    /// <param name="mergeObjects">List of all the objects whose meshes need to be merged</param>
+    public GameObject combineMeshes(List<GameObject> mergeObjects )
+    {
+         CombineInstance[] combine = new CombineInstance[mergeObjects.Count];
+
+        int i = 0;
+        while (i < mergeObjects.Count)
+        {
+            combine[i].mesh = mergeObjects[i].GetComponent<MeshFilter>().sharedMesh;
+            combine[i].transform = mergeObjects[i].transform.localToWorldMatrix;
+            mergeObjects[i].gameObject.SetActive(false);
+
+            i++;
+        }
+       
+        Mesh mesh = new Mesh();
+        mesh.CombineMeshes(combine);
+        GameObject combinedMesh = new GameObject("CombinedWater"); // TODO make the name dynamic
+        MeshFilter mf = combinedMesh.AddComponent(typeof(MeshFilter)) as MeshFilter;
+        MeshRenderer mr = combinedMesh.AddComponent(typeof(MeshRenderer)) as MeshRenderer;
+        mr.material = mergeObjects[0].GetComponent<MeshRenderer>().material;
+
+        combinedMesh.GetComponent<MeshFilter>().sharedMesh = mesh;
+        combinedMesh.gameObject.SetActive(true);
+
+        for(int j =0;j<mergeObjects.Count;j++)
+        {
+            Destroy(mergeObjects[j]);
+        }
+        return combinedMesh;
+    }
 }
