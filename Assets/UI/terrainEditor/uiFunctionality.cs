@@ -51,7 +51,7 @@ public class uiFunctionality : MonoBehaviour
             Debug.Log(brushSizeSlider.value);
             terrain.brushSize = brushSizeSlider.value;
             terrain.ScaleBrush();
-            terrain.LoadBrushFromPngAndCalculateBrushPixels(false);
+            terrain.GetComponent<IOHandler>().LoadBrushFromPngAndCalculateBrushPixels(ref terrain.realBrushStrength,ref terrain.originalBrush, ref terrain.brushForManipulation, ref terrain.loadedBrush, ref terrain.computedBrush, false);
         });
     }
 
@@ -71,7 +71,7 @@ public class uiFunctionality : MonoBehaviour
         brushPicker.SetValueWithoutNotify("circleFullBrush");
         brushPicker.RegisterValueChangedCallback((evt) => {
              terrain.selectedBrush = brushPicker.value;
-             terrain.LoadBrushFromPngAndCalculateBrushPixels(true,terrain.selectedBrush);
+             terrain.GetComponent<IOHandler>().LoadBrushFromPngAndCalculateBrushPixels(ref terrain.realBrushStrength,ref terrain.originalBrush, ref terrain.brushForManipulation, ref terrain.loadedBrush, ref terrain.computedBrush, true, terrain.selectedBrush);
         });
     }
 
@@ -142,8 +142,8 @@ public class uiFunctionality : MonoBehaviour
     {
         Button saveMapButton = root.Q<Button>("MapSaveButton");
         Button loadMapButton = root.Q<Button>("MapLoadButton");
-        saveMapButton.clicked += () => terrain.SaveTerrainHeightmapToFolder(terrain.mapNameForLoadSave);  
-        loadMapButton.clicked += () => terrain.LoadTerrainfromFolder(terrain.mapNameForLoadSave);
+        saveMapButton.clicked += () => terrain.GetComponent<IOHandler>().SaveTerrainHeightmapToFolder(terrain.mapNameForLoadSave, ref terrain.heightmapSaveLoadBuffer, ref terrain.mesh, ref terrain.terrain);  
+        loadMapButton.clicked += () => terrain.GetComponent<IOHandler>().LoadTerrainfromFolder(terrain.mapNameForLoadSave, ref terrain.heightmapSaveLoadBuffer, ref terrain.mesh, ref terrain.terrain);
     }
 
     public void handleTextures()

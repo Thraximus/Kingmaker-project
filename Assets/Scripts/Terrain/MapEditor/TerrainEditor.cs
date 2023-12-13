@@ -14,9 +14,9 @@ public class TerrainEditor : MonoBehaviour
     [SerializeField] private ComputeShader brushDropoffShader;
      public float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
     [SerializeField] public string mapNameForLoadSave;             // Name under which the map will be saved                           TODO: unserialize
-    [SerializeField] private  Texture2D heightmapSaveLoadBuffer;    // Memory buffer used to store the map to be loaded or to be saved  TODO: unserialize
-    [SerializeField] private Texture2D originalBrush;               // Original brush loaded from file                                  TODO: unserialize
-    [SerializeField] private Texture2D brushForManipulation;        // Brush stored in memory, and manipulated(scaled)                  TODO: unserialize
+    [SerializeField] public  Texture2D heightmapSaveLoadBuffer;    // Memory buffer used to store the map to be loaded or to be saved  TODO: unserialize
+    [SerializeField] public Texture2D originalBrush;               // Original brush loaded from file                                  TODO: unserialize
+    [SerializeField] public Texture2D brushForManipulation;        // Brush stored in memory, and manipulated(scaled)                  TODO: unserialize
     [HideInInspector] public float brushStrength;                   //                                                                  TODO: MAYBE inherit brush strength for every pixel from brush?
     [SerializeField] private float brushScaleIncrement = 0.1f;      // Increment in which the brush gets scaled up
     [HideInInspector] public SplatHeights[] splatHeights;
@@ -44,7 +44,7 @@ public class TerrainEditor : MonoBehaviour
     }
 
     
-    struct BrushPixel
+    public struct BrushPixel
     {
         public int xPos;
         public int yPos;
@@ -60,12 +60,12 @@ public class TerrainEditor : MonoBehaviour
     private TerrainTexture[] terrainTextures;
 
     private int brushLength;
-    private float[,] mesh;
+    public float[,] mesh;
     private RaycastHit hit;
     private Ray ray;
     [HideInInspector] public float realBrushStrength;
-    private BrushPixel[] loadedBrush;
-    private BrushPixel[] computedBrush;
+     [HideInInspector] public BrushPixel[] loadedBrush;
+     [HideInInspector] public BrushPixel[] computedBrush;
     private int hitX;
     private int hitZ;
     private List<float[,]> terrainUndoStack = new List<float[,]>();
@@ -105,6 +105,7 @@ public class TerrainEditor : MonoBehaviour
 
     DynamicMeshGenerator meshGenerator = null;
     WaterGenerator waterGenerator = null;
+    IOHandler iOHandler = null;
 
     
     
@@ -113,6 +114,7 @@ public class TerrainEditor : MonoBehaviour
     {
         meshGenerator =  this.GetComponent<DynamicMeshGenerator>();
         waterGenerator = this.GetComponent<WaterGenerator>();
+        iOHandler = this.GetComponent<IOHandler>();
         loadTerrainTextures();
 
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE
@@ -127,7 +129,7 @@ public class TerrainEditor : MonoBehaviour
         }
         
         this.terrain.terrainData.SetHeights(0,0,mesh);
-        LoadBrushFromPngAndCalculateBrushPixels(true,selectedBrush);                                                // TODO: Runtime brush picker
+        iOHandler.LoadBrushFromPngAndCalculateBrushPixels(ref realBrushStrength,ref originalBrush, ref brushForManipulation, ref loadedBrush, ref computedBrush, true,selectedBrush);                                                // TODO: Runtime brush picker
 
     }
 
@@ -177,12 +179,12 @@ public class TerrainEditor : MonoBehaviour
 
         if(Input.GetKeyUp(KeyCode.K))                                // Temporary save key
         {
-            SaveTerrainHeightmapToFolder(mapNameForLoadSave);        // TODO place this function on GUI object
+            iOHandler.SaveTerrainHeightmapToFolder(mapNameForLoadSave, ref heightmapSaveLoadBuffer, ref mesh, ref terrain);        // TODO place this function on GUI object
         }
 
         if(Input.GetKeyUp(KeyCode.L))                                // Temporary load key
         {
-            LoadTerrainfromFolder(mapNameForLoadSave);               // TODO place this function on GUI object
+            iOHandler.LoadTerrainfromFolder(mapNameForLoadSave, ref heightmapSaveLoadBuffer, ref mesh, ref terrain);               // TODO place this function on GUI object
         }
 
         if(Input.GetKeyUp(KeyCode.Comma))                            // Temporary scale down key
@@ -191,7 +193,7 @@ public class TerrainEditor : MonoBehaviour
             {
                 brushSize -= brushScaleIncrement;                     // TODO place this function on GUI object
                 ScaleBrush();
-                LoadBrushFromPngAndCalculateBrushPixels(false);
+                iOHandler.LoadBrushFromPngAndCalculateBrushPixels(ref realBrushStrength,ref originalBrush, ref brushForManipulation, ref loadedBrush, ref computedBrush, false);
             }
         }
 
@@ -201,7 +203,7 @@ public class TerrainEditor : MonoBehaviour
             {
                 brushSize += brushScaleIncrement;                     // TODO place this function on GUI object
                 ScaleBrush();
-                LoadBrushFromPngAndCalculateBrushPixels(false);
+                iOHandler.LoadBrushFromPngAndCalculateBrushPixels(ref realBrushStrength,ref originalBrush, ref brushForManipulation, ref loadedBrush, ref computedBrush, false);
             }
         }
 
@@ -700,147 +702,148 @@ public class TerrainEditor : MonoBehaviour
     // ---------------------------------------------------- LOAD AND SAVE FROM FILE ----------------------------------------------
 
 
-    /// <summary>
-    /// Loads terrain from heightmap in directory. 
-    /// </summary>
-    /// <param name="mapName">Name under which the map that is being loaded is saved under</param>
-    public void LoadTerrainfromFolder(string mapName)
-    {
-        byte[] fileData;
+    // /// <summary>
+    // /// Loads terrain from heightmap in directory. 
+    // /// </summary>
+    // /// <param name="mapName">Name under which the map that is being loaded is saved under</param>
+    // public void LoadTerrainfromFolder(string mapName)
+    // {
+    //     byte[] fileData;
 
-        if (System.IO.File.Exists("Assets/ExportedHeightmaps/" + mapName + ".png"))
-        {
-            fileData = System.IO.File.ReadAllBytes("Assets/ExportedHeightmaps/" + mapName + ".png");
-            heightmapSaveLoadBuffer = new Texture2D(2, 2);
-            heightmapSaveLoadBuffer.LoadImage(fileData); //..this will auto-resize the texture dimensions.
+    //     if (System.IO.File.Exists("Assets/ExportedHeightmaps/" + mapName + ".png"))
+    //     {
+    //         fileData = System.IO.File.ReadAllBytes("Assets/ExportedHeightmaps/" + mapName + ".png");
+    //         heightmapSaveLoadBuffer = new Texture2D(2, 2);
+    //         heightmapSaveLoadBuffer.LoadImage(fileData); //..this will auto-resize the texture dimensions.
         
 
-            mesh = new float[terrain.terrainData.heightmapResolution,terrain.terrainData.heightmapResolution];
-            for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
-            {
-                for( int j = 0; j < terrain.terrainData.heightmapResolution;j++ )
-                {
+    //         mesh = new float[terrain.terrainData.heightmapResolution,terrain.terrainData.heightmapResolution];
+    //         for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
+    //         {
+    //             for( int j = 0; j < terrain.terrainData.heightmapResolution;j++ )
+    //             {
                     
-                    mesh[i,j] = heightmapSaveLoadBuffer.GetPixel(j,i).g;
-                }  
-            }
-            this.terrain.terrainData.SetHeights(0,0,mesh);
-            AddToTerrainUndoStack();
-        }
-        else
-        {
-            Debug.Log("Map Not Found - implement real error handling function");
-        }
+    //                 mesh[i,j] = heightmapSaveLoadBuffer.GetPixel(j,i).g;
+    //             }  
+    //         }
+    //         this.terrain.terrainData.SetHeights(0,0,mesh);
+    //         AddToTerrainUndoStack();
+    //     }
+    //     else
+    //     {
+    //         Debug.Log("Map Not Found - implement real error handling function");
+    //     }
 
-    }
-
-    /// <summary>
-    /// Saves the heightmap of the map as a .png file for future loading
-    /// </summary>
-    /// <param name="mapName">The file name for the exported map</param>
-    public void SaveTerrainHeightmapToFolder(string mapName)
-    {
-        heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.heightmapResolution, terrain.terrainData.heightmapResolution);
-        for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
-        {
-            for( int j = 0; j < terrain.terrainData.heightmapResolution;j++ )
-            {
-                Color pixel = new Color(mesh[j,i],mesh[j,i],mesh[j,i],1);
-                heightmapSaveLoadBuffer.SetPixel(i,j,pixel);
-            }     
-        }
-        heightmapSaveLoadBuffer.Apply();
-
-        byte[] _bytes =heightmapSaveLoadBuffer.EncodeToPNG();
-        System.IO.File.WriteAllBytes("Assets/ExportedHeightmaps/" + mapName + ".png", _bytes);
-
-    }
+    // }
 
 
-    private void SaveSplatmapsToFolder(string mapName)
-    {
-        heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.alphamapResolution, terrain.terrainData.alphamapResolution);
-        for( int i = 0; i < terrain.terrainData.alphamapResolution;i++ )
-        {
-            for( int j = 0; j < terrain.terrainData.alphamapResolution;j++ )
-            {
-                Color pixel = new Color(terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],1);
-                heightmapSaveLoadBuffer.SetPixel(i,j,pixel);
-            }     
-        }
-        heightmapSaveLoadBuffer.Apply();
+    // /// <summary>
+    // /// Saves the heightmap of the map as a .png file for future loading
+    // /// </summary>
+    // /// <param name="mapName">The file name for the exported map</param>
+    // public void SaveTerrainHeightmapToFolder(string mapName)
+    // {
+    //     heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.heightmapResolution, terrain.terrainData.heightmapResolution);
+    //     for( int i = 0; i < terrain.terrainData.heightmapResolution;i++ )
+    //     {
+    //         for( int j = 0; j < terrain.terrainData.heightmapResolution;j++ )
+    //         {
+    //             Color pixel = new Color(mesh[j,i],mesh[j,i],mesh[j,i],1);
+    //             heightmapSaveLoadBuffer.SetPixel(i,j,pixel);
+    //         }     
+    //     }
+    //     heightmapSaveLoadBuffer.Apply();
 
-        byte[] _bytes =heightmapSaveLoadBuffer.EncodeToPNG();
-        System.IO.File.WriteAllBytes("Assets/ExportedHeightmaps/" + mapName + "-alphamap.png", _bytes);
+    //     byte[] _bytes =heightmapSaveLoadBuffer.EncodeToPNG();
+    //     System.IO.File.WriteAllBytes("Assets/ExportedHeightmaps/" + mapName + ".png", _bytes);
 
-    }
-
-
-    /// <summary>
-    /// Loads brush (Optional).
-    /// Calculates the position of black pixels on the loaded brush. 
-    /// </summary>
-    /// <param name="loadFromFile">Flag to indicate if it should be a new texture loaded from file or just recompute pixels for brush</param>
-    /// <param name="brushName">Name of the file in the brush folder without the file extension (file needs to be .png)</param>
-    public void LoadBrushFromPngAndCalculateBrushPixels(bool loadFromFile ,string brushName = "")
-    {
-        byte[] fileData;
-        Texture2D brushForLoading = null;
+    // }
 
 
-        if (System.IO.File.Exists("Assets/Brushes/" + brushName + ".png") || loadFromFile == false)
-        {
-            if(loadFromFile == true)
-            {
-                fileData = System.IO.File.ReadAllBytes("Assets/Brushes/" + brushName + ".png");
-                originalBrush = new Texture2D(2, 2);
-                originalBrush.LoadImage(fileData); //..this will auto-resize the texture dimensions.
-                brushForLoading = originalBrush;
-                brushForManipulation = originalBrush;
-            }
-            else
-            {
-                brushForLoading = brushForManipulation;
-            }
+    // private void SaveSplatmapsToFolder(string mapName)
+    // {
+    //     heightmapSaveLoadBuffer =  new Texture2D(terrain.terrainData.alphamapResolution, terrain.terrainData.alphamapResolution);
+    //     for( int i = 0; i < terrain.terrainData.alphamapResolution;i++ )
+    //     {
+    //         for( int j = 0; j < terrain.terrainData.alphamapResolution;j++ )
+    //         {
+    //             Color pixel = new Color(terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],terrain.terrainData.GetAlphamaps(0,0,terrain.terrainData.alphamapWidth,terrain.terrainData.alphamapHeight)[i,j,1],1);
+    //             heightmapSaveLoadBuffer.SetPixel(i,j,pixel);
+    //         }     
+    //     }
+    //     heightmapSaveLoadBuffer.Apply();
+
+    //     byte[] _bytes =heightmapSaveLoadBuffer.EncodeToPNG();
+    //     System.IO.File.WriteAllBytes("Assets/ExportedHeightmaps/" + mapName + "-alphamap.png", _bytes);
+
+    // }
+
+
+    // /// <summary>
+    // /// Loads brush (Optional).
+    // /// Calculates the position of black pixels on the loaded brush. 
+    // /// </summary>
+    // /// <param name="loadFromFile">Flag to indicate if it should be a new texture loaded from file or just recompute pixels for brush</param>
+    // /// <param name="brushName">Name of the file in the brush folder without the file extension (file needs to be .png)</param>
+    // public void LoadBrushFromPngAndCalculateBrushPixels(bool loadFromFile ,string brushName = "")
+    // {
+    //     byte[] fileData;
+    //     Texture2D brushForLoading = null;
+
+
+    //     if (System.IO.File.Exists("Assets/Brushes/" + brushName + ".png") || loadFromFile == false)
+    //     {
+    //         if(loadFromFile == true)
+    //         {
+    //             fileData = System.IO.File.ReadAllBytes("Assets/Brushes/" + brushName + ".png");
+    //             originalBrush = new Texture2D(2, 2);
+    //             originalBrush.LoadImage(fileData); //..this will auto-resize the texture dimensions.
+    //             brushForLoading = originalBrush;
+    //             brushForManipulation = originalBrush;
+    //         }
+    //         else
+    //         {
+    //             brushForLoading = brushForManipulation;
+    //         }
             
         
-            var count = 0;
-            for (int i = 0; i < brushForLoading.width; i++)
-            {
-                for (int j = 0; j < brushForLoading.height; j++)
-                { 
-                    Color pixel = brushForLoading.GetPixel(j, i);
-                    // if it's a white color then just debug...
-                    if (pixel == Color.black)
-                    {
-                        count+=1;
-                    }
-                }
-            }
-            loadedBrush = new BrushPixel[count];
-            computedBrush = new BrushPixel[count];
-            count = 0;
-            for (int i = 0; i < brushForLoading.width; i++)
-            {
-                for (int j = 0; j < brushForLoading.height; j++)
-                { 
-                    Color pixel = brushForLoading.GetPixel(j, i);
-                    // if it's a white color then just debug...
-                    if (pixel == Color.black)
-                    {
-                        loadedBrush[count].xPos = i- (int)Mathf.Round(brushForLoading.width/2);
-                        loadedBrush[count].yPos = j- (int)Mathf.Round(brushForLoading.height/2);
-                        loadedBrush[count].pixelBrushStrength = realBrushStrength;
-                        count+=1;
-                    }
-                }
-            }
-        }
-        else
-        {
-            Debug.Log("Brush Not Found - implement real error handling function");
-        }
-    }
+    //         var count = 0;
+    //         for (int i = 0; i < brushForLoading.width; i++)
+    //         {
+    //             for (int j = 0; j < brushForLoading.height; j++)
+    //             { 
+    //                 Color pixel = brushForLoading.GetPixel(j, i);
+    //                 // if it's a white color then just debug...
+    //                 if (pixel == Color.black)
+    //                 {
+    //                     count+=1;
+    //                 }
+    //             }
+    //         }
+    //         loadedBrush = new BrushPixel[count];
+    //         computedBrush = new BrushPixel[count];
+    //         count = 0;
+    //         for (int i = 0; i < brushForLoading.width; i++)
+    //         {
+    //             for (int j = 0; j < brushForLoading.height; j++)
+    //             { 
+    //                 Color pixel = brushForLoading.GetPixel(j, i);
+    //                 // if it's a white color then just debug...
+    //                 if (pixel == Color.black)
+    //                 {
+    //                     loadedBrush[count].xPos = i- (int)Mathf.Round(brushForLoading.width/2);
+    //                     loadedBrush[count].yPos = j- (int)Mathf.Round(brushForLoading.height/2);
+    //                     loadedBrush[count].pixelBrushStrength = realBrushStrength;
+    //                     count+=1;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     else
+    //     {
+    //         Debug.Log("Brush Not Found - implement real error handling function");
+    //     }
+    // }
 
     /// <summary>
     /// Loads all terrain textures from the Assets/TerrainTextures folder.   

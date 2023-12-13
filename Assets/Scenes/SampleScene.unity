@@ -846,6 +846,8 @@ GameObject:
   - component: {fileID: 1653783121}
   - component: {fileID: 1653783125}
   - component: {fileID: 1653783124}
+  - component: {fileID: 1653783127}
+  - component: {fileID: 1653783126}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -881,10 +883,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   terrain: {fileID: 1653783123}
-  riverMaterial: {fileID: 2100000, guid: 324e8320a5aab1d48af1c29596a6e940, type: 2}
-  oceanMaterial: {fileID: 2100000, guid: 324e8320a5aab1d48af1c29596a6e940, type: 2}
   brushDropoffShader: {fileID: 7200000, guid: 666c63621b1a9f74b95fd803dddf74fa, type: 3}
-  waterWaypointObject: {fileID: 5611346359509464735, guid: f1a585194500efa4cbab076ed9715792, type: 3}
   brushSize: 20
   mapNameForLoadSave: 
   heightmapSaveLoadBuffer: {fileID: 0}
@@ -978,6 +977,31 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   waterWaypointObject: {fileID: 5611346359509464735, guid: f1a585194500efa4cbab076ed9715792, type: 3}
+--- !u!114 &1653783126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653783119}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8d3fe8a8e6ad8649bd03a844a1ed454, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1653783127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653783119}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abba2258df0228748967efa28eac203c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  terrain: {fileID: 0}
 --- !u!1001 &1764726805
 PrefabInstance:
   m_ObjectHideFlags: 0
