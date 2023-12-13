@@ -10,7 +10,7 @@ public class TerrainEditor : MonoBehaviour
         public int textureIndex;
         public float startingHeight;
     };
-    // [SerializeField] public Terrain terrain;
+    [SerializeField] public Terrain terrain;
     [SerializeField] private ComputeShader brushDropoffShader;
      public float brushSize;                       // Scale of brush (default 1)                                       TODO: unserialize
     [SerializeField] public string mapNameForLoadSave;             // Name under which the map will be saved                           TODO: unserialize
@@ -66,8 +66,8 @@ public class TerrainEditor : MonoBehaviour
     [HideInInspector] public float realBrushStrength;
     private BrushPixel[] loadedBrush;
     private BrushPixel[] computedBrush;
-    // private int hitX;
-    // private int hitZ;
+    private int hitX;
+    private int hitZ;
     private List<float[,]> terrainUndoStack = new List<float[,]>();
     private List<float[,]> terrainRedoStack = new List<float[,]>();
     private List<WaterWaypoint> waterWaypointUndoStack = new List<WaterWaypoint>();
@@ -105,7 +105,6 @@ public class TerrainEditor : MonoBehaviour
 
     DynamicMeshGenerator meshGenerator = null;
     WaterGenerator waterGenerator = null;
-    TerrainGenerator terrainGenerator = null;
 
     
     
@@ -114,7 +113,6 @@ public class TerrainEditor : MonoBehaviour
     {
         meshGenerator =  this.GetComponent<DynamicMeshGenerator>();
         waterGenerator = this.GetComponent<WaterGenerator>();
-        terrainGenerator = this.GetComponent<TerrainGenerator>();
         loadTerrainTextures();
 
         mapNameForLoadSave = "TerrainTextureTest"; // TEMPORARY TODO: REMOVE
@@ -133,19 +131,19 @@ public class TerrainEditor : MonoBehaviour
 
     }
 
-    // private float[,] returnCopyOfMesh(float[,] originalMesh)
-    // {
-    //     var returnMesh = new float[originalMesh.GetLength(0),originalMesh.GetLength(1)];
-    //     for( int i = 0; i < originalMesh.GetLength(0);i++ )
-    //     {
-    //         for( int j = 0; j < originalMesh.GetLength(1);j++ )
-    //         {
-    //             returnMesh[i,j] = originalMesh[i,j];                                                                                  //  set base height 
-    //         }                                                                                                       //  TODO: make custimisable / resetable
-    //     }
+    private float[,] returnCopyOfMesh(float[,] originalMesh)
+    {
+        var returnMesh = new float[originalMesh.GetLength(0),originalMesh.GetLength(1)];
+        for( int i = 0; i < originalMesh.GetLength(0);i++ )
+        {
+            for( int j = 0; j < originalMesh.GetLength(1);j++ )
+            {
+                returnMesh[i,j] = originalMesh[i,j];                                                                                  //  set base height 
+            }                                                                                                       //  TODO: make custimisable / resetable
+        }
 
-    //     return returnMesh;
-    // }
+        return returnMesh;
+    }
 
     // Update is called once per frame
     private void Update()
@@ -327,7 +325,7 @@ public class TerrainEditor : MonoBehaviour
     private void AddToTerrainRedoStack()
     {
         redoMemoryStack.Add(ActionType.TERRAIN);
-        terrainRedoStack.Add(terrainGenerator.returnCopyOfMesh(mesh));
+        terrainRedoStack.Add(returnCopyOfMesh(mesh));
     }
 
     private void AddToWaterWaypointRedoStack(WaterWaypoint waypointToAddToRedo)
@@ -393,7 +391,7 @@ public class TerrainEditor : MonoBehaviour
     {
         AddToTerrainUndoStack();
         this.terrain.terrainData.SetHeights(0,0, terrainRedoStack[terrainRedoStack.Count-1]);
-        mesh = terrainGenerator.returnCopyOfMesh(terrainRedoStack[terrainRedoStack.Count-1]);
+        mesh = returnCopyOfMesh(terrainRedoStack[terrainRedoStack.Count-1]);
         terrainRedoStack.RemoveAt(terrainRedoStack.Count-1);
     }
 
@@ -562,7 +560,7 @@ public class TerrainEditor : MonoBehaviour
 
     private void AddToTerrainUndoStack()
     {
-        terrainUndoStack.Add(terrainGenerator.returnCopyOfMesh(mesh));
+        terrainUndoStack.Add(returnCopyOfMesh(mesh));
         undoMemoryStack.Add(ActionType.TERRAIN);
         CheckAndRemoveUndoStackOverflow();
     }
@@ -612,7 +610,7 @@ public class TerrainEditor : MonoBehaviour
     {
         AddToTerrainRedoStack();
         this.terrain.terrainData.SetHeights(0,0, terrainUndoStack[terrainUndoStack.Count-1]);
-        mesh = terrainGenerator.returnCopyOfMesh(terrainUndoStack[terrainUndoStack.Count-1]);
+        mesh = returnCopyOfMesh(terrainUndoStack[terrainUndoStack.Count-1]);
         terrainUndoStack.RemoveAt(terrainUndoStack.Count-1);
     }
 
@@ -934,65 +932,65 @@ public class TerrainEditor : MonoBehaviour
         texture.Apply();
     }
 
-    // /// <summary>
-    // /// Raises or loweres terrain at the mouse position according to the brush. 
-    // /// </summary>
-    // /// <param name="raise">Flag that determines if terains should be lowered or raised (True = raise) (False = lower)</param>
-    // private void RaiseOrLowerTerrain(bool raise)
-    // {
-    //     var modifier = 1;
-    //     if(!raise)
-    //     {
-    //         modifier = -1;
-    //     }
+    /// <summary>
+    /// Raises or loweres terrain at the mouse position according to the brush. 
+    /// </summary>
+    /// <param name="raise">Flag that determines if terains should be lowered or raised (True = raise) (False = lower)</param>
+    private void RaiseOrLowerTerrain(bool raise)
+    {
+        var modifier = 1;
+        if(!raise)
+        {
+            modifier = -1;
+        }
 
-    //     ray = Camera.main.ScreenPointToRay (Input.mousePosition);
-    //     if (Physics.Raycast (ray, out hit)) 
-    //     {
-    //         hitZ = Mathf.RoundToInt((hit.point - terrain.GetPosition()).z/terrain.terrainData.size.z * terrain.terrainData.heightmapResolution);
-    //         hitX = Mathf.RoundToInt((hit.point - terrain.GetPosition()).x/terrain.terrainData.size.x * terrain.terrainData.heightmapResolution);
-    //         realBrushStrength = brushStrength/250;
-    //         // calculate brush strenghts with compute shader
-    //         brushDropoffShader.SetFloat("brushWidth",brushForManipulation.width);
-    //         brushDropoffShader.SetFloat("brushHeight",brushForManipulation.height);
-    //         ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));   
-    //         buffer.SetData(loadedBrush);
-    //         int kernel = brushDropoffShader.FindKernel(brushEffect);
-    //         brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
-    //         brushDropoffShader.Dispatch(kernel,(int)Mathf.Ceil(loadedBrush.Length/64f),1,1);
-    //         brushLength = (int)Mathf.Ceil(loadedBrush.Length/64f);
-    //         buffer.GetData(computedBrush);
+        ray = Camera.main.ScreenPointToRay (Input.mousePosition);
+        if (Physics.Raycast (ray, out hit)) 
+        {
+            hitZ = Mathf.RoundToInt((hit.point - terrain.GetPosition()).z/terrain.terrainData.size.z * terrain.terrainData.heightmapResolution);
+            hitX = Mathf.RoundToInt((hit.point - terrain.GetPosition()).x/terrain.terrainData.size.x * terrain.terrainData.heightmapResolution);
+            realBrushStrength = brushStrength/250;
+            // calculate brush strenghts with compute shader
+            brushDropoffShader.SetFloat("brushWidth",brushForManipulation.width);
+            brushDropoffShader.SetFloat("brushHeight",brushForManipulation.height);
+            ComputeBuffer buffer = new ComputeBuffer(loadedBrush.Length,sizeof(int)*2+sizeof(float));   
+            buffer.SetData(loadedBrush);
+            int kernel = brushDropoffShader.FindKernel(brushEffect);
+            brushDropoffShader.SetBuffer(kernel, "loadedBrush", buffer);
+            brushDropoffShader.Dispatch(kernel,(int)Mathf.Ceil(loadedBrush.Length/64f),1,1);
+            brushLength = (int)Mathf.Ceil(loadedBrush.Length/64f);
+            buffer.GetData(computedBrush);
 
-    //         buffer.Dispose();
+            buffer.Dispose();
             
-    //         for(int i=0; i< computedBrush.Length;i++)
-    //         {
-    //             if(hitZ+computedBrush[i].xPos > 0 && hitX+computedBrush[i].yPos > 0 && hitZ+computedBrush[i].xPos < terrain.terrainData.heightmapResolution && hitX+computedBrush[i].yPos < terrain.terrainData.heightmapResolution)
-    //             {
+            for(int i=0; i< computedBrush.Length;i++)
+            {
+                if(hitZ+computedBrush[i].xPos > 0 && hitX+computedBrush[i].yPos > 0 && hitZ+computedBrush[i].xPos < terrain.terrainData.heightmapResolution && hitX+computedBrush[i].yPos < terrain.terrainData.heightmapResolution)
+                {
                     
-    //                 if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime < 1  )
-    //                 {
-    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
-    //                 }
-    //                 else
-    //                 {
-    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 1;
-    //                 }
-    //                 if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime > 0 )
-    //                 {
-    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
-    //                 }
-    //                 else
-    //                 {
-    //                     mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 0;
-    //                 }
-    //             }
-    //             loadedBrush[i].pixelBrushStrength = realBrushStrength;
-    //         }
-    //         this.terrain.terrainData.SetHeights(0,0,mesh);
-    //         terrainManipulationActive = true;
-    //     }
-    // }
+                    if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime < 1  )
+                    {
+                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
+                    }
+                    else
+                    {
+                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 1;
+                    }
+                    if( mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] + computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime > 0 )
+                    {
+                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] += computedBrush[i].pixelBrushStrength * modifier * Time.deltaTime;
+                    }
+                    else
+                    {
+                        mesh[hitZ+computedBrush[i].xPos,hitX+computedBrush[i].yPos] = 0;
+                    }
+                }
+                loadedBrush[i].pixelBrushStrength = realBrushStrength;
+            }
+            this.terrain.terrainData.SetHeights(0,0,mesh);
+            terrainManipulationActive = true;
+        }
+    }
 
 
     /// <summary>
