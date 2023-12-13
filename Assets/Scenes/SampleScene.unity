@@ -846,7 +846,6 @@ GameObject:
   - component: {fileID: 1653783121}
   - component: {fileID: 1653783125}
   - component: {fileID: 1653783124}
-  - component: {fileID: 1653783127}
   - component: {fileID: 1653783126}
   - component: {fileID: 1653783128}
   - component: {fileID: 1653783129}
@@ -977,27 +976,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8d3fe8a8e6ad8649bd03a844a1ed454, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1653783127
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1653783119}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: abba2258df0228748967efa28eac203c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  terrain: {fileID: 1653783123}
-  realBrushStrength: 0
-  brushStrength: 0
-  brushDropoffShader: {fileID: 0}
-  brushForManipulation: {fileID: 0}
-  terrainManipulationActive: 0
-  brushSize: 0
-  originalBrush: {fileID: 0}
-  brushEffect: SmoothManipultionTool
 --- !u!114 &1653783128
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1028,10 +1006,10 @@ MonoBehaviour:
   realBrushStrength: 0
   brushStrength: 0
   brushDropoffShader: {fileID: 7200000, guid: 666c63621b1a9f74b95fd803dddf74fa, type: 3}
-  brushForManipulation: {fileID: 2800000, guid: 6e7b777a6a0aad14e852759f2e14a8ae, type: 3}
+  brushForManipulation: {fileID: 0}
   terrainManipulationActive: 0
-  brushSize: 0
-  originalBrush: {fileID: 2800000, guid: 9d07de3662f2f5542ae93733a3eded35, type: 3}
+  brushSize: 1.02
+  originalBrush: {fileID: 0}
   brushEffect: SmoothManipultionTool
 --- !u!1001 &1764726805
 PrefabInstance:

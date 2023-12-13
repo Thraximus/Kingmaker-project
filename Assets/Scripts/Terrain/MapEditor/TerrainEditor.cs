@@ -201,6 +201,11 @@ public class TerrainEditor : MonoBehaviour
                 iOHandler.LoadBrushFromPngAndCalculateBrushPixels(ref terrainManipulator.getRealBrushStrengthRef(), ref terrainManipulator.getOriginalBrushRef(), ref terrainManipulator.getBrushForManipulationRef(), ref terrainManipulator.getLoadedBrushRef(), ref terrainManipulator.getComputedBrushRef(), false);
             }
         }
+        if(Input.GetKeyUp(KeyCode.T))
+        {
+            textureManipulator.AutoTextureTerrain(terrainData);
+        }
+
 
         if(Input.GetKeyUp(KeyCode.G))   // Temporary undo key       replace G with Input.GetKeyUp(KeyCode.LeftControl) && Input.GetKeyUp(KeyCode.Z)
         {
@@ -211,11 +216,7 @@ public class TerrainEditor : MonoBehaviour
             RedoAction();               // TODO place this function on GUI object
         }
 
-        if(Input.GetKeyUp(KeyCode.T))
-        {
-            textureManipulator.AutoTextureTerrain(terrainData);
-        }
-
+        
         if(Input.GetKeyUp(KeyCode.R) && !placeWaterWaypointEnabeled)                                // Temporary save key
         {
             Debug.Log("enabeled");
