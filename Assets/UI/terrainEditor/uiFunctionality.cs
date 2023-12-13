@@ -9,12 +9,16 @@ public class uiFunctionality : MonoBehaviour
     // Start is called before the first frame update
     private VisualElement root;
 
-    private TerrainEditor.SplatHeights[] splatHeightsLocal;
+    private TextureManipulator.SplatHeights[] splatHeightsLocal;
+    TextureManipulator textureManipulator = null;
+    TerrainManipulator terrainManipulator = null;
 
     private void OnEnable() 
     {
         
         root = GetComponent<UIDocument>().rootVisualElement;
+        terrainManipulator = terrain.GetComponent<TerrainManipulator>();
+        textureManipulator = terrain.GetComponent<TextureManipulator>();
         handleTextures();
         handleSaveAndLoad();
         handleTerrain();
@@ -35,23 +39,23 @@ public class uiFunctionality : MonoBehaviour
     private void handleBrushStrength()
     {
         SliderInt brushStrengthSlider = root.Q<SliderInt>("BrushStrength");
-        terrain.brushStrength = brushStrengthSlider.value;
+        terrainManipulator.brushStrength = brushStrengthSlider.value;
         brushStrengthSlider.RegisterValueChangedCallback((evt) =>
         {
-            terrain.brushStrength = brushStrengthSlider.value;
+            terrainManipulator.brushStrength = brushStrengthSlider.value;
         });
     }
 
     public void handleBrushSize()
     {
         Slider brushSizeSlider = root.Q<Slider>("BrushSize");
-        terrain.brushSize = brushSizeSlider.value;
+        terrainManipulator.brushSize = brushSizeSlider.value;
         brushSizeSlider.RegisterValueChangedCallback((evt) =>
         {
             Debug.Log(brushSizeSlider.value);
-            terrain.brushSize = brushSizeSlider.value;
-            terrain.ScaleBrush();
-            terrain.GetComponent<IOHandler>().LoadBrushFromPngAndCalculateBrushPixels(ref terrain.realBrushStrength,ref terrain.originalBrush, ref terrain.brushForManipulation, ref terrain.loadedBrush, ref terrain.computedBrush, false);
+            terrainManipulator.brushSize = brushSizeSlider.value;
+            terrainManipulator.ScaleBrush();
+            terrain.GetComponent<IOHandler>().LoadBrushFromPngAndCalculateBrushPixels(ref terrainManipulator.getRealBrushStrengthRef(), ref terrainManipulator.getOriginalBrushRef(), ref terrainManipulator.getBrushForManipulationRef(), ref terrainManipulator.getLoadedBrushRef(), ref terrainManipulator.getComputedBrushRef(), false);
         });
     }
 
@@ -71,22 +75,23 @@ public class uiFunctionality : MonoBehaviour
         brushPicker.SetValueWithoutNotify("circleFullBrush");
         brushPicker.RegisterValueChangedCallback((evt) => {
              terrain.selectedBrush = brushPicker.value;
-             terrain.GetComponent<IOHandler>().LoadBrushFromPngAndCalculateBrushPixels(ref terrain.realBrushStrength,ref terrain.originalBrush, ref terrain.brushForManipulation, ref terrain.loadedBrush, ref terrain.computedBrush, true, terrain.selectedBrush);
+             terrain.GetComponent<IOHandler>().LoadBrushFromPngAndCalculateBrushPixels(ref terrainManipulator.getRealBrushStrengthRef(), ref terrainManipulator.getOriginalBrushRef(), ref terrainManipulator.getBrushForManipulationRef(), ref terrainManipulator.getLoadedBrushRef(), ref terrainManipulator.getComputedBrushRef(), true, terrain.selectedBrush);
         });
     }
 
     private void handleAutoTextureSetter()
     {
+        
         Foldout textureCutoffs = root.Q<Foldout>("TextureCutoffs");   
-        terrain.loadTerrainTextures();  // has to be done to be sure that textures are loaded
-        splatHeightsLocal = new TerrainEditor.SplatHeights[terrain.getNumOfUniqueTextures()];
+        terrain.GetComponent<IOHandler>().loadTerrainTextures(terrain, ref terrain.terrainData, ref textureManipulator.allTextureVariants, ref terrain.terrain, ref textureManipulator.terrainTextures, ref terrain.heightmapSaveLoadBuffer );  // has to be done to be sure that textures are loaded
+        splatHeightsLocal = new TextureManipulator.SplatHeights[textureManipulator.getNumOfUniqueTextures()];
 
-        for(int i=0; i< terrain.getNumOfUniqueTextures();i++)
+        for(int i=0; i< textureManipulator.getNumOfUniqueTextures();i++)
         {
-            textureCutoffs.Add(createTextureDataObject(i,terrain.getNumOfUniqueTextures()));
+            textureCutoffs.Add(createTextureDataObject(i,textureManipulator.getNumOfUniqueTextures()));
         }
         textureCutoffs.value = false;
-        terrain.SetSplatHeights(splatHeightsLocal);
+        textureManipulator.SetSplatHeights(splatHeightsLocal);
 
         foreach (VisualElement childSubElement in textureCutoffs.Children())
         {
@@ -94,14 +99,14 @@ public class uiFunctionality : MonoBehaviour
             {
                 (childSubElement.ElementAt(4) as Label).text = "Value: " + (childSubElement.ElementAt(3) as SliderInt).value;
                 splatHeightsLocal[textureCutoffs.IndexOf(childSubElement)].startingHeight = (childSubElement.ElementAt(3) as SliderInt).value;
-                terrain.SetSplatHeights(splatHeightsLocal);
+                textureManipulator.SetSplatHeights(splatHeightsLocal);
             });
 
 
             (childSubElement.ElementAt(1) as DropdownField).RegisterValueChangedCallback((evt)=>
             {
                 splatHeightsLocal[textureCutoffs.IndexOf(childSubElement)].textureIndex = (childSubElement.ElementAt(1) as DropdownField).index;
-                terrain.SetSplatHeights(splatHeightsLocal);
+                textureManipulator.SetSplatHeights(splatHeightsLocal);
             });
             
         }
@@ -113,7 +118,7 @@ public class uiFunctionality : MonoBehaviour
         Foldout tmp = new Foldout();
         tmp.text = "Layer"+ number;
         tmp.Add(new Label("Texture"));
-        List<string> choicesList = terrain.getTextureNames();
+        List<string> choicesList = textureManipulator.getTextureNames();
         tmp.Add(new DropdownField(choicesList,choicesList[0]));
         (tmp.ElementAt(1) as DropdownField).index = number;
         tmp.Add(new Label("Height"));
@@ -142,15 +147,15 @@ public class uiFunctionality : MonoBehaviour
     {
         Button saveMapButton = root.Q<Button>("MapSaveButton");
         Button loadMapButton = root.Q<Button>("MapLoadButton");
-        saveMapButton.clicked += () => terrain.GetComponent<IOHandler>().SaveTerrainHeightmapToFolder(terrain.mapNameForLoadSave, ref terrain.heightmapSaveLoadBuffer, ref terrain.mesh, ref terrain.terrain);  
-        loadMapButton.clicked += () => terrain.GetComponent<IOHandler>().LoadTerrainfromFolder(terrain.mapNameForLoadSave, ref terrain.heightmapSaveLoadBuffer, ref terrain.mesh, ref terrain.terrain);
+        saveMapButton.clicked += () => terrain.GetComponent<IOHandler>().SaveTerrainHeightmapToFolder(terrain.mapNameForLoadSave, ref terrain.heightmapSaveLoadBuffer, ref terrainManipulator.getTerrainMeshRef(), ref terrain.terrain);  
+        loadMapButton.clicked += () => terrain.GetComponent<IOHandler>().LoadTerrainfromFolder(terrain.mapNameForLoadSave, ref terrain.heightmapSaveLoadBuffer, ref terrainManipulator.getTerrainMeshRef(), ref terrain.terrain);
     }
 
     public void handleTextures()
     {
         
         Button autoTextureButton = root.Q<Button>("AutoTexture");
-        autoTextureButton.clicked += () => terrain.AutoTextureTerrain();
+        autoTextureButton.clicked += () => textureManipulator.AutoTextureTerrain(terrain.terrainData);
     }
 
 

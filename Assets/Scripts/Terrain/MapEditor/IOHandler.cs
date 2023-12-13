@@ -97,7 +97,7 @@ public class IOHandler : MonoBehaviour
     /// </summary>
     /// <param name="loadFromFile">Flag to indicate if it should be a new texture loaded from file or just recompute pixels for brush</param>
     /// <param name="brushName">Name of the file in the brush folder without the file extension (file needs to be .png)</param>
-    public void LoadBrushFromPngAndCalculateBrushPixels(ref float realBrushStrength, ref Texture2D originalBrush, ref Texture2D brushForManipulation, ref TerrainEditor.BrushPixel[] loadedBrush, ref TerrainEditor.BrushPixel[] computedBrush, bool loadFromFile ,string brushName = "")
+    public void LoadBrushFromPngAndCalculateBrushPixels(ref float realBrushStrength, ref Texture2D originalBrush, ref Texture2D brushForManipulation, ref TerrainManipulator.BrushPixel[] loadedBrush, ref TerrainManipulator.BrushPixel[] computedBrush, bool loadFromFile ,string brushName = "")
     {
         byte[] fileData;
         Texture2D brushForLoading = null;
@@ -132,8 +132,8 @@ public class IOHandler : MonoBehaviour
                     }
                 }
             }
-            loadedBrush = new TerrainEditor.BrushPixel[count];
-            computedBrush = new TerrainEditor.BrushPixel[count];
+            loadedBrush = new TerrainManipulator.BrushPixel[count];
+            computedBrush = new TerrainManipulator.BrushPixel[count];
             count = 0;
             for (int i = 0; i < brushForLoading.width; i++)
             {
@@ -154,6 +154,71 @@ public class IOHandler : MonoBehaviour
         else
         {
             Debug.Log("Brush Not Found - implement real error handling function");
+        }
+    }
+
+
+    /// <summary>
+    /// Loads all terrain textures from the Assets/TerrainTextures folder.   
+    /// Each texture should be stored in its own folder.   
+    /// Textures can consist of 1 or more variants (in .png format).
+    /// </summary>
+    public void loadTerrainTextures(TerrainEditor terrainEditor, ref TerrainData terrainData, ref int allTextureVariants, ref Terrain terrain, ref TextureManipulator.TerrainTexture[] terrainTextures, ref Texture2D heightmapSaveLoadBuffer)
+    {
+        int uniqueTextures = 0;
+        
+        string [] directories = System.IO.Directory.GetDirectories("Assets/TerrainTextures");
+        foreach (string dir in directories)
+        {
+            uniqueTextures +=1;
+            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
+            
+            foreach (string texture in textures)
+            {
+                allTextureVariants +=1;                
+            }
+        }
+
+        terrainData = terrain.terrainData;
+        TerrainLayer[] terrainTexture = new TerrainLayer[allTextureVariants];
+        terrainTextures = new TextureManipulator.TerrainTexture[uniqueTextures];
+        allTextureVariants = 0;
+        uniqueTextures = 0;
+
+        foreach (string dir in directories)
+        {
+            terrainTextures[uniqueTextures].name = dir.Substring(dir.LastIndexOf('\\')+1);
+            terrainTextures[uniqueTextures].beginIndex = allTextureVariants;
+            int currentTextureNumOfVariations = 0;
+            string [] textures = System.IO.Directory.GetFiles(dir,"*.png");
+            
+            foreach (string texture in textures)
+            {     
+                currentTextureNumOfVariations+=1;
+                byte[] fileData = System.IO.File.ReadAllBytes(texture);
+                heightmapSaveLoadBuffer = new Texture2D(2, 2);
+                heightmapSaveLoadBuffer.LoadImage(fileData);
+                if (true)                                                                               // TODO: add option to pick whether or not to use alpha channel (currently hardcoded to ignore)
+                {
+                    terrainEditor.GetComponent<TextureManipulator>().ClearAlphaFromTexture(ref heightmapSaveLoadBuffer);
+                }
+                terrainTexture[allTextureVariants] = new TerrainLayer();
+                terrainTexture[allTextureVariants].diffuseTexture = heightmapSaveLoadBuffer;
+                terrainTexture[allTextureVariants].name = texture.Substring(texture.LastIndexOf('\\')+1);
+
+                terrainData.terrainLayers = terrainTexture;    
+                allTextureVariants +=1;
+                   
+            }
+            if(currentTextureNumOfVariations<2)
+            {
+                terrainTextures[uniqueTextures].endIndex = terrainTextures[uniqueTextures].beginIndex;
+            }
+            else if (currentTextureNumOfVariations > 1)
+            {
+                terrainTextures[uniqueTextures].endIndex = terrainTextures[uniqueTextures].beginIndex + currentTextureNumOfVariations;
+            }
+            uniqueTextures +=1;
         }
     }
 }
