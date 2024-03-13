@@ -55,7 +55,7 @@ public class WaterGenerator : MonoBehaviour
 
     private WaterWaypoint pastWaterWaypoint = null;
     private WaterWaypoint currentWaterWaypoint = null;
-    private float WaterWaypointHeight=-2f;
+    [SerializeField] private float WaterWaypointHeight=-2f;
 
     // Start is called before the first frame update
     void Start()
@@ -816,7 +816,7 @@ public class WaterGenerator : MonoBehaviour
     {
         currentWaterWaypoint = CreateWaypointSingle(WaterWaypointHeight);
             //AddToWaterWaypointUndoStack(currentWaterWaypoint); TODO REDO UNRO REDO
-            // WaterWaypointHeight += 0.9f; TODO : just for debug purposes
+            // WaterWaypointHeight += 0.9f; //TODO : just for debug purposes
             if(pastWaterWaypoint != null)
             {
                 currentWaterWaypoint.previousWaypoint = pastWaterWaypoint;

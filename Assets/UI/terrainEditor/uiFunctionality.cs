@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 public class uiFunctionality : MonoBehaviour
 {
     public TerrainEditor terrain;
+    public TerrainManipulator manipulator;
     // Start is called before the first frame update
     private VisualElement root;
 
@@ -19,6 +20,7 @@ public class uiFunctionality : MonoBehaviour
         root = GetComponent<UIDocument>().rootVisualElement;
         terrainManipulator = terrain.GetComponent<TerrainManipulator>();
         textureManipulator = terrain.GetComponent<TextureManipulator>();
+        manipulator = terrain.GetComponent<TerrainManipulator>();
         handleTextures();
         handleSaveAndLoad();
         handleTerrain();
@@ -137,9 +139,9 @@ public class uiFunctionality : MonoBehaviour
         DropdownField brushEffectPicker = root.Q<DropdownField>("BrushEffectPicker");
         brushEffectPicker.choices = new List<string> {"SmoothManipultionTool", "HardManipultionTool", "JaggedManipultionTool", "NoiseManipultionTool"}; 
         brushEffectPicker.SetValueWithoutNotify("SmoothManipultionTool");
-        terrain.brushEffect = brushEffectPicker.value;
+        manipulator.brushEffect = brushEffectPicker.value;
         brushEffectPicker.RegisterValueChangedCallback((evt) => {
-             terrain.brushEffect = brushEffectPicker.value;
+             manipulator.brushEffect = brushEffectPicker.value;
         });
     }
 
