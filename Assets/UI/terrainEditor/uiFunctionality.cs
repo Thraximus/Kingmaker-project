@@ -142,7 +142,7 @@ public class uiFunctionality : MonoBehaviour
         manipulator.brushEffect = brushEffectPicker.value;
         brushEffectPicker.RegisterValueChangedCallback((evt) => {
              manipulator.brushEffect = brushEffectPicker.value;
-        });
+        }); 
     }
 
     private void handleSaveAndLoad()
